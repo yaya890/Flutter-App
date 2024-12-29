@@ -1,0 +1,16 @@
+{
+  "name": "Flutter Dev Environment",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",  // Base image
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Dart-Code.flutter",
+        "Dart-Code.dart-code"
+      ]
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/install_flutter.sh",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  }
+}
