@@ -69,8 +69,8 @@ class ApplicationsPage extends StatelessWidget {
                     // Sort functionality placeholder
                   },
                   style: ElevatedButton.styleFrom(
-                    primary: Colors.white,
-                    onPrimary: Colors.purple,
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.purple,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
                     ),
@@ -140,8 +140,8 @@ class ApplicationsPage extends StatelessWidget {
               // View CV functionality placeholder
             },
             style: ElevatedButton.styleFrom(
-              primary: Colors.white,
-              onPrimary: Colors.purple,
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.purple,
               padding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               shape: RoundedRectangleBorder(
