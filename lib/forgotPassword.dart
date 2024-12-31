@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'logInPage.dart'; // Import the LogInPage
 
 class ForgotPasswordPage extends StatelessWidget {
-  const ForgotPasswordPage({Key? key}) : super(key: key);
+  const ForgotPasswordPage({super.key});
 
   @override
   Widget build(BuildContext context) {

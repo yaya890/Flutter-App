@@ -3,7 +3,7 @@ import 'logInPage.dart'; // Import the LogInPage
 import 'verificationPage.dart'; // Import the VerificationPage
 
 class SignUpPage extends StatelessWidget {
-  const SignUpPage({Key? key}) : super(key: key);
+  const SignUpPage({super.key});
 
   @override
   Widget build(BuildContext context) {

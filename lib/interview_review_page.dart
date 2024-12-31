@@ -33,7 +33,7 @@ class InterviewReviewPage extends StatelessWidget {
     },
   ];
 
-  InterviewReviewPage({Key? key}) : super(key: key);
+  InterviewReviewPage({super.key});
 
   @override
   Widget build(BuildContext context) {

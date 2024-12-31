@@ -3,7 +3,7 @@ import 'jobPostings.dart'; // Import JobPostings page
 import 'interview_review_page.dart'; // Import InterviewReviewPage
 
 class HRhomeScreen extends StatelessWidget {
-  const HRhomeScreen({Key? key}) : super(key: key);
+  const HRhomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

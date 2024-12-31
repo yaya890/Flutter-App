@@ -5,7 +5,7 @@ import 'welcomePage.dart'; // Import the WelcomePage
 import 'HRhomeScreen.dart'; // Import the HRhomeScreen
 
 class LogInPage extends StatelessWidget {
-  const LogInPage({Key? key}) : super(key: key);
+  const LogInPage({super.key});
 
   @override
   Widget build(BuildContext context) {

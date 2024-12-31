@@ -5,10 +5,10 @@ class InterviewSummaryScreen extends StatelessWidget {
   final String interviewTitle;
 
   const InterviewSummaryScreen({
-    Key? key,
+    super.key,
     required this.candidateName,
     required this.interviewTitle,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

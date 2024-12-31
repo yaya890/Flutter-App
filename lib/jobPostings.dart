@@ -3,7 +3,7 @@ import 'newJobPosting.dart';
 import 'applications.dart'; // Import the ApplicationsPage
 
 class JobPostings extends StatelessWidget {
-  const JobPostings({Key? key}) : super(key: key);
+  const JobPostings({super.key});
 
   @override
   Widget build(BuildContext context) {
