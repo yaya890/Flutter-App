@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'availableJobs.dart'; // Import AvailableJobs page
-import 'jobsInterviews.dart'; // Import JobsInterviews page
-import 'applicationsTracking.dart'; // Import ApplicationsTracking page
 
 class CandidateHomeScreen extends StatelessWidget {
+  const CandidateHomeScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -14,7 +14,7 @@ class CandidateHomeScreen extends StatelessWidget {
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu, color: Colors.black),
             onPressed: () {
-              Scaffold.of(context).openDrawer(); // Open the drawer
+              Scaffold.of(context).openDrawer();
             },
           ),
         ),
@@ -22,22 +22,18 @@ class CandidateHomeScreen extends StatelessWidget {
         title: const Text(
           'Home',
           style: TextStyle(
-            color: Color(0xFF4A148C), // Purple color
+            color: Color(0xFF4A148C),
             fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.person, color: Colors.black),
-            onPressed: () {
-              // Profile functionality placeholder
-            },
+            onPressed: () {},
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.black),
-            onPressed: () {
-              // Log-out functionality placeholder
-            },
+            onPressed: () {},
           ),
         ],
       ),
@@ -46,11 +42,11 @@ class CandidateHomeScreen extends StatelessWidget {
           padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: Color.fromARGB(255, 125, 25, 155),
               ),
-              child: const Center(
-                child: Text(
+              child: Center(
+                child: const Text(
                   'Menu',
                   style: TextStyle(
                     color: Colors.white,
@@ -70,278 +66,215 @@ class CandidateHomeScreen extends StatelessWidget {
                 );
               },
             ),
-           /* ListTile(
-              leading: const Icon(Icons.interpreter_mode, color: Color(0xFF4A148C)),
-              title: const Text('Job Interviews'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const JobsInterviews()),
-                );
-              },
-            ),*/
-            /* ListTile(
-              leading: const Icon(Icons.track_changes, color: Color(0xFF4A148C)),
-              title: const Text('Applications Tracking'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ApplicationsTracking()),
-                );
-              },
-            ), */ 
           ],
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Job Listings Section
-            const Text(
-              "Jobs Listings\nRecommended for you",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 180,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: const [
-                  JobCard(
-                    title: "VR Designer",
-                    company: "Meta",
-                    location: "London, UK (Remote)",
-                    daysAgo: "5 days ago",
-                  ),
-                  JobCard(
-                    title: "Product Manager",
-                    company: "Meta",
-                    location: "Riyadh, KSA",
-                    daysAgo: "1 day ago",
-                  ),
-                  JobCard(
-                    title: "UI Designer",
-                    company: "Meta",
-                    location: "Mecca, KSA",
-                    daysAgo: "3 days ago",
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            // My Applications Section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "My Applications",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildWelcomeSection(),
+              const SizedBox(height: 20),
+
+              _buildSectionHeader('Job Listings', 'See all Jobs'),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 200,
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: 5,
+                    itemBuilder: (context, index) => _buildJobCard(),
                   ),
                 ),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text("See all"),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const ApplicationRow(
-              title: "VR Designer",
-              onDetailsTap: () {},
-              onStatusTap: () {},
-            ),
-            const ApplicationRow(
-              title: "Product Manager",
-              onDetailsTap: () {},
-              onStatusTap: () {},
-            ),
-            const SizedBox(height: 24),
-            // My Jobs Interviews Section
-            const Text(
-              "My Job Interviews",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
               ),
-            ),
-            const SizedBox(height: 8),
-            const InterviewRow(
-              title: "Software Engineer",
-              date: "October 25, 2024",
-              time: "10:00 PM",
-              onDetailsTap: () {},
-              onStartTap: () {},
-            ),
-            const SizedBox(height: 24),
-            // My Performance Section
-            const Text(
-              "My Performance",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+              const SizedBox(height: 20),
+
+              _buildSectionHeader('My Applications', 'See all Applications'),
+              const SizedBox(height: 10),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: 5,
+                itemBuilder: (context, index) => _buildApplicationRow(),
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: const [
-                PerformanceCard(
-                  icon: Icons.pie_chart,
-                  onTap: () {},
-                ),
-                PerformanceCard(
-                  icon: Icons.bar_chart,
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ],
+              const SizedBox(height: 20),
+
+              _buildSectionHeader('My Performance', 'See all KPIs'),
+              const SizedBox(height: 10),
+              _buildKPISection(),
+            ],
+          ),
         ),
       ),
     );
   }
-}
 
-class JobCard extends StatelessWidget {
-  final String title;
-  final String company;
-  final String location;
-  final String daysAgo;
+  Widget _buildWelcomeSection() {
+    return Row(
+      children: [
+        const CircleAvatar(
+          radius: 30,
+          backgroundColor: Colors.purple,
+          child: Icon(Icons.person, color: Colors.white, size: 30),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              'Hello,',
+              style: TextStyle(fontSize: 18, color: Colors.black54),
+            ),
+            Text(
+              'Candidate Name', // Placeholder for candidate name
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF4A148C),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
-  const JobCard({
-    required this.title,
-    required this.company,
-    required this.location,
-    required this.daysAgo,
-  });
+  Widget _buildSectionHeader(String title, String action) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        TextButton(
+          onPressed: () {},
+          child: Text(
+            action,
+            style: const TextStyle(color: Colors.blue),
+          ),
+        ),
+      ],
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildJobCard() {
     return Container(
-      margin: const EdgeInsets.only(right: 16),
-      width: 250,
+      width: 150,
+      margin: const EdgeInsets.only(right: 10),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF3E5F5), Colors.white],
+        ),
         borderRadius: BorderRadius.circular(12),
-        gradient: LinearGradient(
-          colors: [Colors.purple.shade100, Colors.purple.shade200],
-        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.2),
+            blurRadius: 5,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(company),
-            const SizedBox(height: 4),
-            Text(location),
-            const Spacer(),
-            Text(daysAgo, style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                ElevatedButton(
-                  onPressed: () {},
-                  child: const Text("View details"),
-                ),
-                ElevatedButton(
-                  onPressed: () {},
-                  child: const Text("Apply"),
-                ),
-              ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Job Title: ', // Placeholder
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF4A148C),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ApplicationRow extends StatelessWidget {
-  final String title;
-  final VoidCallback onDetailsTap;
-  final VoidCallback onStatusTap;
-
-  const ApplicationRow({
-    required this.title,
-    required this.onDetailsTap,
-    required this.onStatusTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(title),
-      trailing: Wrap(
-        spacing: 8,
-        children: [
-          TextButton(onPressed: onDetailsTap, child: const Text("View details")),
-          TextButton(onPressed: onStatusTap, child: const Text("Status")),
+          ),
+          const Text('Company: ', style: TextStyle(color: Colors.black54)),
+          const Text('Location: ', style: TextStyle(color: Colors.black54)),
+          const Spacer(),
+          const Text('Days Ago: ', style: TextStyle(color: Colors.black54)),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: () {}, // Placeholder
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7A1EA1), // Purple button
+            ),
+            child: const Text('Apply'),
+          ),
         ],
       ),
     );
   }
-}
 
-class InterviewRow extends StatelessWidget {
-  final String title;
-  final String date;
-  final String time;
-  final VoidCallback onDetailsTap;
-  final VoidCallback onStartTap;
-
-  const InterviewRow({
-    required this.title,
-    required this.date,
-    required this.time,
-    required this.onDetailsTap,
-    required this.onStartTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(title),
-      subtitle: Text("Interview Date: $date\nInterview Time: $time"),
-      trailing: Wrap(
-        spacing: 8,
+  Widget _buildApplicationRow() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          TextButton(onPressed: onDetailsTap, child: const Text("View details")),
-          TextButton(onPressed: onStartTap, child: const Text("Start")),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text('Job Title: ', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('Application Status: '),
+            ],
+          ),
+          ElevatedButton(
+            onPressed: () {}, // Placeholder
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7A1EA1),
+            ),
+            child: const Text('View Details'),
+          ),
         ],
       ),
     );
   }
-}
 
-class PerformanceCard extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
+  Widget _buildKPISection() {
+    return Column(
+      children: [
+        _buildKPIProgress('Applications Submitted', '80%'),
+        _buildKPIProgress('Interviews Completed', '60%'),
+      ],
+    );
+  }
 
-  const PerformanceCard({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 120,
-        height: 120,
-        decoration: BoxDecoration(
-          color: Colors.purple.shade100,
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildKPIProgress(String kpi, String progress) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Flexible(
+          flex: 2,
+          child: Text(kpi, style: const TextStyle(fontSize: 16)),
         ),
-        child: Icon(icon, size: 60, color: Colors.purple),
-      ),
+        Expanded(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: LinearProgressIndicator(
+              value: double.parse(progress.replaceAll('%', '')) / 100,
+              backgroundColor: Colors.grey.shade300,
+              color: Colors.blue,
+            ),
+          ),
+        ),
+        Flexible(
+          flex: 1,
+          child: Text(progress),
+        ),
+      ],
     );
   }
 }
