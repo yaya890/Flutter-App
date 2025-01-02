@@ -1,9 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'applications.dart';
 import 'newJobPosting.dart';
-import 'applications.dart'; // Import the ApplicationsPage
 
-class JobPostings extends StatelessWidget {
+class JobPostings extends StatefulWidget {
   const JobPostings({super.key});
+
+  @override
+  _JobPostingsState createState() => _JobPostingsState();
+}
+
+class _JobPostingsState extends State<JobPostings> {
+  late Future<List<dynamic>> jobs;
+
+  @override
+  void initState() {
+    super.initState();
+    jobs = fetchJobs();
+  }
+
+  Future<List<dynamic>> fetchJobs() async {
+    try {
+      final response = await http.get(Uri.parse('http://127.0.0.1:39542/get_jobs'));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception("Failed to load jobs");
+      }
+    } catch (e) {
+      throw Exception("Error fetching jobs: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,16 +65,28 @@ class JobPostings extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: ListView(
-          children: [
-            // Job Cards
-            _buildJobCard(context),
-            _buildJobCard(context),
-            _buildJobCard(context),
-            _buildJobCard(context),
+        child: FutureBuilder<List<dynamic>>(
+          future: jobs,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(
+                child: Text('Error: ${snapshot.error}'),
+              );
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Center(child: Text('No jobs found.'));
+            }
 
-            const SizedBox(height: 20), // Space below the last card
-          ],
+            final jobs = snapshot.data!;
+            return ListView.builder(
+              itemCount: jobs.length,
+              itemBuilder: (context, index) {
+                final job = jobs[index];
+                return _buildJobCard(context, job);
+              },
+            );
+          },
         ),
       ),
       floatingActionButton: Container(
@@ -64,7 +105,7 @@ class JobPostings extends StatelessWidget {
               MaterialPageRoute(builder: (context) => const NewJobPosting()),
             );
           },
-          backgroundColor: Colors.transparent, // Use transparent for gradient
+          backgroundColor: Colors.transparent,
           elevation: 0,
           label: const Text('+ New Job Post'),
         ),
@@ -72,7 +113,7 @@ class JobPostings extends StatelessWidget {
     );
   }
 
-  Widget _buildJobCard(BuildContext context) {
+  Widget _buildJobCard(BuildContext context, dynamic job) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -95,43 +136,32 @@ class JobPostings extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Job Title Placeholder
-          const Text(
-            'Job Title',
-            style: TextStyle(
+          Text(
+            job['title'] ?? 'Job Title',
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Color(0xFF4A148C),
             ),
           ),
           const SizedBox(height: 8),
-
-          // Job Description Placeholder
-          const Text(
-            'Description of the job will go here...',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.black54,
-            ),
+          Text(
+            job['description'] ?? 'Description not available.',
+            style: const TextStyle(fontSize: 14, color: Colors.black54),
           ),
           const SizedBox(height: 8),
-
-          // Job Status Placeholder
-          const Text(
-            'Status:',
-            style: TextStyle(
+          Text(
+            'Status: ${job['status'] ?? 'Unknown'}',
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
-          ), // Status is intentionally left blank here
+          ),
           const SizedBox(height: 16),
-
-          // Action Buttons
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Edit Button
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(
@@ -143,8 +173,8 @@ class JobPostings extends StatelessWidget {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF7A1EA1),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 10),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -154,21 +184,19 @@ class JobPostings extends StatelessWidget {
                   style: TextStyle(color: Colors.white),
                 ),
               ),
-
-              // View Applications Button
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const ApplicationsPage(),
+                      builder: (context) => ApplicationsPage(jobID: job['jobID']),
                     ),
                   );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF7A1EA1),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 10),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -185,4 +213,3 @@ class JobPostings extends StatelessWidget {
     );
   }
 }
-

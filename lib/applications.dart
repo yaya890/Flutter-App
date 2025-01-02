@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class ApplicationsPage extends StatelessWidget {
-  const ApplicationsPage({super.key});
+  final int jobID; // Added jobID field
+
+  const ApplicationsPage({Key? key, required this.jobID}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {

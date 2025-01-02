@@ -1,7 +1,9 @@
 from flask import Flask, jsonify, request
 from flask_mysqldb import MySQL
 from flask_cors import CORS
+import os
 import logging
+from werkzeug.utils import secure_filename
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -14,6 +16,11 @@ app.config['MYSQL_HOST'] = 'localhost'  # Your database host
 app.config['MYSQL_USER'] = 'root'  # Your MySQL username
 app.config['MYSQL_PASSWORD'] = 'yara'  # Your MySQL password
 app.config['MYSQL_DB'] = 'ElpisHR'  # Your database name
+
+# Configure file upload folder
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 mysql = MySQL(app)
 
@@ -103,6 +110,103 @@ def get_job_details(job_id):
     except Exception as e:
         logging.error(f"Error retrieving job details: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+# /upload_cv Endpoint
+@app.route('/upload_cv', methods=['POST'])
+def upload_cv():
+    if 'file' not in request.files and not request.data:
+        logging.error("No file part or data in the request.")
+        return jsonify({"error": "No file part or data in the request"}), 400
+
+    try:
+        if 'file' in request.files:
+            # For native file uploads (e.g., from mobile apps)
+            file = request.files['file']
+            if file.filename == '':
+                logging.error("No selected file.")
+                return jsonify({"error": "No selected file"}), 400
+
+            if not file.filename.endswith('.pdf'):
+                logging.error("Invalid file type. Only PDFs are allowed.")
+                return jsonify({"error": "Invalid file type. Only PDFs are allowed."}), 400
+
+            # Save file
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+        else:
+            # For web-based file uploads (e.g., Flutter web)
+            filename = secure_filename(request.headers.get('Filename', 'uploaded_file.pdf'))
+            if not filename.endswith('.pdf'):
+                logging.error("Invalid file type. Only PDFs are allowed.")
+                return jsonify({"error": "Invalid file type. Only PDFs are allowed."}), 400
+
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            with open(filepath, 'wb') as f:
+                f.write(request.data)
+
+        logging.info(f"CV uploaded successfully: {filename}")
+        return jsonify({"file_path": filepath, "message": "CV uploaded successfully"}), 201
+
+    except Exception as e:
+        logging.error(f"Error uploading CV: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+# /save_application Endpoint
+@app.route('/save_application', methods=['POST'])
+def save_application():
+    data = request.json
+    job_id = data.get('jobID')
+    cv_file_path = data.get('filePath')
+    candidate_id = 1  # Set CandidateID to 1
+
+    # Validate required fields
+    if not all([job_id, cv_file_path]):
+        logging.error("Missing required fields in the request.")
+        return jsonify({"error": "Missing required fields"}), 400
+
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("""
+            INSERT INTO JobApplication (candidateID, jobID, cvPath)
+            VALUES (%s, %s, %s)
+        """, (candidate_id, job_id, cv_file_path))
+        mysql.connection.commit()
+        cursor.close()
+
+        logging.info(f"Application sent successfully for CandidateID: {candidate_id}, jobID: {job_id}")
+        return jsonify({"message": "Application saved successfully"}), 201
+    except Exception as e:
+        logging.error(f"Error application not sent: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+#display job posts
+@app.route('/get_jobs', methods=['GET'])
+def get_jobs():
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("""
+            SELECT j.jobID, j.title, j.description, j.status
+            FROM Job j
+            LEFT JOIN JobApplication ja ON j.jobID = ja.jobID
+            ORDER BY j.jobID DESC
+        """)
+        jobs = cursor.fetchall()
+        cursor.close()
+
+        # Convert results to a list of dictionaries
+        result = [{"jobID": job[0], "title": job[1], "description": job[2], "status": job[3]} for job in jobs]
+
+        return jsonify(result), 200
+    except Exception as e:
+        logging.error(f"Error retrieving jobs: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 
 
 if __name__ == '__main__':

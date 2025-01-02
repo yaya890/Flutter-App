@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'available_jobs.dart'; // Import the AvailableJobs screen.
+import 'available_jobs.dart';
+import 'uploadCV.dart'; // Import the UploadCVPage.
 
 class CandidateHomeScreen extends StatelessWidget {
   const CandidateHomeScreen({Key? key}) : super(key: key);
@@ -96,51 +97,48 @@ class CandidateHomeScreen extends StatelessWidget {
           ],
         ),
       ),
-      body: SingleChildScrollView(
+      body: ListView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Jobs Listings\nRecommended for you",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildJobCard("VR Designer", "Meta", "London, UK (Remote)", "5 days ago"),
-                  const SizedBox(width: 16),
-                  _buildJobCard("Product Manager", "Meta", "Riyadh", "1 day ago"),
-                  const SizedBox(width: 16),
-                  _buildJobCard("UI Designer", "Meta", "Mecca, KSA", "3 days ago"),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildSectionHeader("My Applications"),
-            _buildApplicationRow("VR Designer"),
-            _buildApplicationRow("Product Manager"),
-            const SizedBox(height: 24),
-            _buildSectionHeader("My Jobs Interviews"),
-            _buildInterviewRow("Software Engineer", "October 25, 2024", "10:00 PM"),
-            const SizedBox(height: 24),
-            _buildSectionHeader("My Performance"),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          const Text(
+            "Jobs Listings\nRecommended for you",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
               children: [
-                _buildPerformanceCard(Icons.pie_chart, "View details"),
-                _buildPerformanceCard(Icons.bar_chart, "View details"),
+                _buildJobCard(context, "VR Designer", "Meta", "London, UK (Remote)", "5 days ago", 1),
+                const SizedBox(width: 16),
+                _buildJobCard(context, "Product Manager", "Meta", "Riyadh", "1 day ago", 2),
+                const SizedBox(width: 16),
+                _buildJobCard(context, "UI Designer", "Meta", "Mecca, KSA", "3 days ago", 3),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 24),
+          _buildSectionHeader("My Applications"),
+          _buildApplicationRow("VR Designer"),
+          _buildApplicationRow("Product Manager"),
+          const SizedBox(height: 24),
+          _buildSectionHeader("My Jobs Interviews"),
+          _buildInterviewRow("Software Engineer", "October 25, 2024", "10:00 PM"),
+          const SizedBox(height: 24),
+          _buildSectionHeader("My Performance"),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildPerformanceCard(Icons.pie_chart, "View details"),
+              _buildPerformanceCard(Icons.bar_chart, "View details"),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildJobCard(String title, String company, String location, String timeAgo) {
+  Widget _buildJobCard(BuildContext context, String title, String company, String location, String timeAgo, int jobID) {
     return Container(
       width: 200,
       padding: const EdgeInsets.all(12),
@@ -166,7 +164,14 @@ class CandidateHomeScreen extends StatelessWidget {
             children: [
               TextButton(onPressed: () {}, child: const Text("View details")),
               ElevatedButton(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => UploadCVPage(jobID: jobID),
+                    ),
+                  );
+                },
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
                 child: const Text("Apply"),
               ),
