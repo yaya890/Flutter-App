@@ -1,60 +1,23 @@
-
-
-
 import 'package:flutter/material.dart';
-import 'verificationPage.dart';
-import 'newJobPosting.dart';
-import 'jobPostings.dart';
-import 'applications.dart';
-import 'forgotPassword.dart';
-import 'logInPage.dart';
-import 'welcomePage.dart'; // Import the WelcomePage
-import 'candidateHomeScreen.dart';
+import 'welcomePage.dart'; // Ensure this file is in the same directory or update the import path.
 
 void main() {
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Flutter App',
+      title: 'Candidate App',
       theme: ThemeData(
         primarySwatch: Colors.purple,
+        scaffoldBackgroundColor: Colors.white,
       ),
-      home: const WelcomePage(), // Set WelcomePage as the initial page
+      home: const WelcomePage(),
     );
   }
 }
-
-
-
-
-/*
-import 'package:flutter/material.dart';
-import 'candidateHomeScreen.dart'; // Import your CandidateHomeScreen file
-
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Candidate Home Screen',
-      theme: ThemeData(
-        primarySwatch: Colors.purple,
-      ),
-      home: CandidateHomeScreen(), // Set CandidateHomeScreen as the default page
-    );
-  }
-}
-*/

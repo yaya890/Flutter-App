@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'candidateHomeScreen.dart'; // Import the CandidateHomeScreen file
-import 'logInPage.dart';
+import 'logInPage.dart'; // Import the LoginPage file
+import 'candidate_home_screen.dart'; 
 
 class WelcomePage extends StatelessWidget {
-  const WelcomePage({super.key});
+  const WelcomePage({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -70,13 +70,13 @@ class WelcomePage extends StatelessWidget {
                       icon: Icons.person,
                       title: "Candidates",
                       description:
-                          "Access faster and more efficient hiring process.",
+                          "Access faster and more efficient hiring process .",
                       onTap: () {
-                        // Navigate to CandidateHomeScreen
+                        // Navigate to LogInPage
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => CandidateHomeScreen(),
+                            builder: (context) => const CandidateHomeScreen(),
                           ),
                         );
                       },
