@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_pdfview/flutter_pdfview.dart';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
+import 'package:advance_pdf_viewer/advance_pdf_viewer.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ApplicationsPage extends StatefulWidget {
   final int jobID;
@@ -41,32 +40,13 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
 
   void openCV(BuildContext context, String cvUrl) async {
     try {
-      final tempDir = await getTemporaryDirectory();
-      final filePath = '${tempDir.path}/temp.pdf';
-
-      // Debugging logs
-      print("Downloading CV from: $cvUrl");
-      print("Saving to: $filePath");
-
-      final response = await http.get(Uri.parse(cvUrl));
-      if (response.statusCode == 200) {
-        final file = File(filePath);
-        await file.writeAsBytes(response.bodyBytes);
-
-        // Check if the file exists
-        if (await file.exists()) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PdfViewerPage(pdfUrl: cvUrl),
-            ),
-          );
-        } else {
-          throw Exception("Downloaded file does not exist.");
-        }
-      } else {
-        throw Exception("Failed to download the CV.");
-      }
+      PDFDocument document = await PDFDocument.fromURL(cvUrl);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PdfViewerPage(document: document),
+        ),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error opening CV: $e")),
@@ -167,6 +147,7 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Profile Icon
           Row(
             children: [
               const CircleAvatar(
@@ -185,6 +166,8 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
               ),
             ],
           ),
+
+          // View CV Button
           ElevatedButton(
             onPressed: () => openCV(context, cvUrl),
             style: ElevatedButton.styleFrom(
@@ -207,9 +190,9 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
 }
 
 class PdfViewerPage extends StatelessWidget {
-  final String filePath;
+  final PDFDocument document;
 
-  const PdfViewerPage({Key? key, required this.filePath}) : super(key: key);
+  const PdfViewerPage({Key? key, required this.document}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -218,17 +201,8 @@ class PdfViewerPage extends StatelessWidget {
         title: const Text('View CV'),
         backgroundColor: Colors.purple,
       ),
-      body: PDFView(
-        filePath: filePath,
-        enableSwipe: true,
-        swipeHorizontal: false,
-        autoSpacing: true,
-        pageFling: true,
-        onError: (error) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Error loading PDF: $error")),
-          );
-        },
+      body: Center(
+        child: PDFViewer(document: document),
       ),
     );
   }
