@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, url_for, send_file
 from flask_mysqldb import MySQL
 from flask_cors import CORS
 import os
@@ -19,6 +19,7 @@ app.config['MYSQL_DB'] = 'ElpisHR'  # Your database name
 
 # Configure file upload folder
 UPLOAD_FOLDER = 'uploads'
+BASE_URL = "http://127.0.0.1:39542/" 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -192,7 +193,6 @@ def get_jobs():
         cursor.execute("""
             SELECT j.jobID, j.title, j.description, j.status
             FROM Job j
-            LEFT JOIN JobApplication ja ON j.jobID = ja.jobID
             ORDER BY j.jobID DESC
         """)
         jobs = cursor.fetchall()
@@ -207,6 +207,68 @@ def get_jobs():
         return jsonify({"error": str(e)}), 500
 
 
+
+# Get Applications Endpoint
+@app.route('/get_application/<int:jobID>', methods=['GET'])
+def get_application(jobID):
+    try:
+        cursor = mysql.connection.cursor()
+        query = """
+            SELECT 
+                ja.applicationID,
+                ja.cvPath, 
+                u.name
+            FROM 
+                jobapplication ja
+            JOIN 
+                candidate c ON ja.candidateID = c.candidateID
+            JOIN 
+                user u ON c.userID = u.userID
+            WHERE 
+                ja.jobID = %s
+        """
+        cursor.execute(query, (jobID,))
+        applications = cursor.fetchall()
+        cursor.close()
+
+        if not applications:
+            logging.warning(f"No applications found for JobID: {jobID}")
+            return jsonify({"message": "No applications found", "data": []}), 200
+
+        # Properly clean and format cvPath
+        result = [
+            {
+                "applicationID": app[0],
+                "cvPath": f"{BASE_URL}{UPLOAD_FOLDER}/{os.path.basename(app[1]).replace('\\', '/')}",  # Fix redundant paths and slashes
+                "name": app[2]
+            } 
+            for app in applications
+        ]
+
+        logging.info(f"Applications retrieved successfully for JobID: {jobID}")
+        return jsonify({"message": "Applications retrieved successfully", "data": result}), 200
+
+    except Exception as e:
+        logging.error(f"Error retrieving applications for JobID {jobID}: {str(e)}")
+        return jsonify({"message": "Error retrieving applications", "error": str(e)}), 500
+
+
+# File Download Route
+@app.route('/uploads/<path:filename>', methods=['GET'])
+def download_file(filename):
+    try:
+        # Ensure the full file path is correct
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        if os.path.exists(file_path):
+            logging.info(f"Serving file: {file_path}")
+            return send_file(file_path)
+        else:
+            logging.warning(f"File not found: {file_path}")
+            return jsonify({"error": "File not found"}), 404
+    except Exception as e:
+        logging.error(f"Error serving file {filename}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+        
 
 
 if __name__ == '__main__':

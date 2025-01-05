@@ -14,8 +14,10 @@ dependencies:
     sdk: flutter
   http: ^1.2.2
   file_picker: ^8.1.7
-
+  url_launcher: ^6.0.20
   cupertino_icons: ^1.0.8
+  webview_flutter: ^4.2.3
+  flutter_pdfview: ^1.0.7
 
 dev_dependencies:
   flutter_test:
