@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 
 class ApplicationsPage extends StatefulWidget {
@@ -38,14 +37,13 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
     }
   }
 
-  void openCV(String cvUrl) async {
-    if (await canLaunch(cvUrl)) {
-      await launch(cvUrl, forceWebView: false, enableJavaScript: true);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Could not open CV: $cvUrl")),
-      );
-    }
+  void openCV(BuildContext context, String cvPath) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PdfViewerPage(pdfUrl: cvPath),
+      ),
+    );
   }
 
   @override
@@ -128,6 +126,35 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
                   },
                 ),
               ),
+
+              // Sort Button
+              const Divider(color: Colors.white, thickness: 1),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20.0),
+                child: ElevatedButton(
+                  onPressed: () {
+                    // Sort functionality placeholder
+                    debugPrint("Sort button pressed");
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.purple,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                  ),
+                  child: const Text(
+                    'Sort',
+                    style: TextStyle(
+                      color: Color(0xFF4A148C),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -170,7 +197,7 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
 
           // View CV Button
           ElevatedButton(
-            onPressed: () => openCV(cvUrl),
+            onPressed: () => openCV(context, cvUrl),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: Colors.purple,
@@ -185,6 +212,29 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class PdfViewerPage extends StatelessWidget {
+  final String pdfUrl;
+
+  const PdfViewerPage({Key? key, required this.pdfUrl}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('View CV'),
+        backgroundColor: Colors.purple,
+      ),
+      body: Center(
+        child: Text(
+          'CV Viewer for $pdfUrl\n\nPDF Viewing not implemented.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 18, color: Colors.black),
+        ),
       ),
     );
   }
