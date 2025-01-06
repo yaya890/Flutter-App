@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:advance_pdf_viewer/advance_pdf_viewer.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 
 class ApplicationsPage extends StatefulWidget {
@@ -38,18 +38,12 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
     }
   }
 
-  void openCV(BuildContext context, String cvUrl) async {
-    try {
-      PDFDocument document = await PDFDocument.fromURL(cvUrl);
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PdfViewerPage(document: document),
-        ),
-      );
-    } catch (e) {
+  void openCV(String cvUrl) async {
+    if (await canLaunch(cvUrl)) {
+      await launch(cvUrl, forceWebView: false, enableJavaScript: true);
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error opening CV: $e")),
+        SnackBar(content: Text("Could not open CV: $cvUrl")),
       );
     }
   }
@@ -156,20 +150,27 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
                 child: Icon(Icons.person, color: Colors.black),
               ),
               const SizedBox(width: 10),
-              Text(
-                'Name: $name',
-                style: const TextStyle(
-                  color: Colors.lightBlue,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+
+              // Name Placeholder
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Name: $name',
+                    style: const TextStyle(
+                      color: Colors.lightBlue,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
 
           // View CV Button
           ElevatedButton(
-            onPressed: () => openCV(context, cvUrl),
+            onPressed: () => openCV(cvUrl),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: Colors.purple,
@@ -184,25 +185,6 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class PdfViewerPage extends StatelessWidget {
-  final PDFDocument document;
-
-  const PdfViewerPage({Key? key, required this.document}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('View CV'),
-        backgroundColor: Colors.purple,
-      ),
-      body: Center(
-        child: PDFViewer(document: document),
       ),
     );
   }
