@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'uploadCV.dart'; // Import the UploadCVPage file
 
 class AvailableJobs extends StatefulWidget {
-  const AvailableJobs({Key? key}) : super(key: key);
+  const AvailableJobs({super.key});
 
   @override
   _AvailableJobsState createState() => _AvailableJobsState();
@@ -208,7 +208,8 @@ class _AvailableJobsState extends State<AvailableJobs> {
               Flexible(
                 child: TextButton(
                   onPressed: () {
-                    print("JobID for Details: ${job['jobID']}"); // Debugging print statement
+                    print(
+                        "JobID for Details: ${job['jobID']}"); // Debugging print statement
                     _showJobDetails(context, job['jobID']);
                   },
                   child: const Text("View Details"),

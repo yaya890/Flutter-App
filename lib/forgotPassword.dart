@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'logInPage.dart'; // Import the LogInPage
+// Import the LogInPage
 
 class ForgotPasswordPage extends StatelessWidget {
   const ForgotPasswordPage({super.key});
@@ -124,8 +124,6 @@ class ForgotPasswordPage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 20),
-
-                        
                       ],
                     ),
                   ),

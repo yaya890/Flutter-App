@@ -4,7 +4,7 @@ import 'uploadCV.dart';
 import 'jobs_interview_page.dart'; // Import the JobsInterviewPage.
 
 class CandidateHomeScreen extends StatelessWidget {
-  const CandidateHomeScreen({Key? key}) : super(key: key);
+  const CandidateHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -84,18 +84,21 @@ class CandidateHomeScreen extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const AvailableJobs()),
+                  MaterialPageRoute(
+                      builder: (context) => const AvailableJobs()),
                 );
               },
             ),
             ListTile(
-              leading: const Icon(Icons.mail_outline), // Icon for Interviews Invitations
+              leading: const Icon(
+                  Icons.mail_outline), // Icon for Interviews Invitations
               title: const Text("Interviews Invitations"),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => JobsInterviewPage(candidateID: '1'), // Pass candidateID
+                    builder: (context) =>
+                        JobsInterviewPage(candidateID: '1'), // Pass candidateID
                   ),
                 );
               },
@@ -122,11 +125,14 @@ class CandidateHomeScreen extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildJobCard(context, "VR Designer", "Meta", "London, UK (Remote)", "5 days ago", 1),
+                _buildJobCard(context, "VR Designer", "Meta",
+                    "London, UK (Remote)", "5 days ago", 1),
                 const SizedBox(width: 16),
-                _buildJobCard(context, "Product Manager", "Meta", "Riyadh", "1 day ago", 2),
+                _buildJobCard(context, "Product Manager", "Meta", "Riyadh",
+                    "1 day ago", 2),
                 const SizedBox(width: 16),
-                _buildJobCard(context, "UI Designer", "Meta", "Mecca, KSA", "3 days ago", 3),
+                _buildJobCard(context, "UI Designer", "Meta", "Mecca, KSA",
+                    "3 days ago", 3),
               ],
             ),
           ),
@@ -136,7 +142,8 @@ class CandidateHomeScreen extends StatelessWidget {
           _buildApplicationRow("Product Manager"),
           const SizedBox(height: 24),
           _buildSectionHeader("My Jobs Interviews"),
-          _buildInterviewRow("Software Engineer", "October 25, 2024", "10:00 PM"),
+          _buildInterviewRow(
+              "Software Engineer", "October 25, 2024", "10:00 PM"),
           const SizedBox(height: 24),
           _buildSectionHeader("My Performance"),
           Row(
@@ -151,7 +158,8 @@ class CandidateHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildJobCard(BuildContext context, String title, String company, String location, String timeAgo, int jobID) {
+  Widget _buildJobCard(BuildContext context, String title, String company,
+      String location, String timeAgo, int jobID) {
     return Container(
       width: 200,
       padding: const EdgeInsets.all(12),
@@ -170,7 +178,8 @@ class CandidateHomeScreen extends StatelessWidget {
           const SizedBox(height: 4),
           Text(location),
           const SizedBox(height: 4),
-          Text(timeAgo, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          Text(timeAgo,
+              style: const TextStyle(fontSize: 12, color: Colors.grey)),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

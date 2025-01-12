@@ -6,7 +6,7 @@ import 'dart:convert';
 class ApplicationsPage extends StatefulWidget {
   final int jobID;
 
-  const ApplicationsPage({Key? key, required this.jobID}) : super(key: key);
+  const ApplicationsPage({super.key, required this.jobID});
 
   @override
   _ApplicationsPageState createState() => _ApplicationsPageState();
