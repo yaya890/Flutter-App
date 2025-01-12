@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'logInPage.dart'; // Import the LoginPage file
-import 'candidate_home_screen.dart'; 
+import 'candidate_home_screen.dart';
 
 class WelcomePage extends StatelessWidget {
-  const WelcomePage({Key? key}) : super(key: key);
+  const WelcomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +54,8 @@ class WelcomePage extends StatelessWidget {
                     _loginOption(
                       icon: Icons.admin_panel_settings,
                       title: "HR Managers",
-                      description: "Access HR tools integrated with AI for better management.",
+                      description:
+                          "Access HR tools integrated with AI for better management.",
                       onTap: () {
                         // Navigate to LogInPage
                         Navigator.push(

@@ -202,8 +202,7 @@ class _JobPostingFormState extends State<JobPostingForm> {
     );
   }
 }
- */ 
-
+ */
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -247,6 +246,8 @@ class NewJobPosting extends StatelessWidget {
 }
 
 class JobPostingForm extends StatefulWidget {
+  const JobPostingForm({super.key});
+
   @override
   _JobPostingFormState createState() => _JobPostingFormState();
 }
@@ -274,7 +275,8 @@ class _JobPostingFormState extends State<JobPostingForm> {
     try {
       // Send data to the backend
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:39542/add_job'), // Replace with your backend URL
+        Uri.parse(
+            'http://127.0.0.1:39542/add_job'), // Replace with your backend URL
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(jobPosting),
       );
@@ -392,7 +394,8 @@ class _JobPostingFormState extends State<JobPostingForm> {
     );
   }
 
-  Widget _buildTextField({int maxLines = 1, required TextEditingController controller}) {
+  Widget _buildTextField(
+      {int maxLines = 1, required TextEditingController controller}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(

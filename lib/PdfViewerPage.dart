@@ -5,7 +5,7 @@ import 'dart:io';
 class PdfViewerPage extends StatelessWidget {
   final String filePath;
 
-  const PdfViewerPage({Key? key, required this.filePath}) : super(key: key);
+  const PdfViewerPage({super.key, required this.filePath});
 
   @override
   Widget build(BuildContext context) {

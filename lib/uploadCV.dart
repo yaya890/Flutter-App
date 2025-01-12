@@ -7,7 +7,7 @@ class UploadCVPage extends StatelessWidget {
   final int jobID;
   String? uploadedFilePath;
 
-  UploadCVPage({Key? key, required this.jobID}) : super(key: key);
+  UploadCVPage({super.key, required this.jobID});
 
   Future<void> _uploadCV(BuildContext context) async {
     try {
@@ -106,7 +106,8 @@ class UploadCVPage extends StatelessWidget {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to submit application: ${response.body}")),
+          SnackBar(
+              content: Text("Failed to submit application: ${response.body}")),
         );
       }
     } catch (e) {
