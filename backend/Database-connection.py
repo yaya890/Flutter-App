@@ -294,212 +294,69 @@ def download_file(filename):
     except Exception as e:
         logging.error(f"Error serving file {filename}: {str(e)}")
         return jsonify({"error": str(e)}), 500
-        
 
 
+# get jobs invitations 
+@app.route('/get_invitations', methods=['GET'])
+def get_invitations():
+    candidate_id = request.args.get('candidateID')  # Retrieve candidateID from query parameters
+    if not candidate_id:
+        logging.error("Missing candidateID in request.")
+        return jsonify({"error": "candidateID is required"}), 400
 
-
-
-
-
-
-def extract_resume_text(file_path):
-    """
-    Extract text from a PDF file using pdfplumber with OCR fallback.
-    """
     try:
-        with pdfplumber.open(file_path) as pdf:
-            text = ''.join([page.extract_text() for page in pdf.pages if page.extract_text()])
-        if text.strip():
-            return text.strip()
-        else:
-            logging.warning(f"pdfplumber failed to extract text for {file_path}. Using OCR as fallback.")
-    except Exception as e:
-        logging.warning(f"pdfplumber error for {file_path}: {e}. Using OCR as fallback.")
-
-    # OCR fallback
-    try:
-        images = convert_from_path(file_path)
-        text = ' '.join(pytesseract.image_to_string(image) for image in images)
-        return text.strip()
-    except Exception as e:
-        logging.error(f"OCR failed for {file_path}: {e}")
-        return ""
-
-def sbert_sort_resumes(job_description, resumes, default_score=0.0, batch_size=16):
-    """
-    Use Sentence-BERT to rank resumes based on a job description.
-    """
-    try:
-        job_embedding = sbert_model.encode(job_description, convert_to_tensor=True)
-        resume_embeddings = []
-
-        for i in range(0, len(resumes), batch_size):
-            batch = resumes[i:i + batch_size]
-            batch_embeddings = sbert_model.encode(batch, convert_to_tensor=True)
-            resume_embeddings.append(batch_embeddings)
-
-        resume_embeddings = torch.cat(resume_embeddings)
-        similarities = util.pytorch_cos_sim(job_embedding, resume_embeddings)
-
-        results = [
-            {"resume": resumes[i], "score": float(similarities[0][i]) if resumes[i].strip() else default_score}
-            for i in range(len(resumes))
-        ]
-
-        sorted_results = sorted(results, key=lambda x: x['score'], reverse=True)
-        return sorted_results
-
-    except Exception as e:
-        logging.error(f"Error using Sentence-BERT: {e}")
-        return []
-
-def cache_scores(jobID, scores):
-    """
-    Save the scores for applications of a job in the cache.
-    """
-    try:
+        # Fetch job applications for the candidate where invitationID is not null
         cursor = mysql.connection.cursor()
-        for score in scores:
-            cursor.execute(
-                """
-                INSERT INTO CachedScores (jobID, applicationID, score)
-                VALUES (%s, %s, %s)
-                ON DUPLICATE KEY UPDATE score = VALUES(score)
-                """,
-                (jobID, score['applicationID'], score['score'])
-            )
-        mysql.connection.commit()
-        cursor.close()
-        logging.info(f"Scores cached for jobID {jobID}.")
-    except Exception as e:
-        logging.error(f"Error caching scores for jobID {jobID}: {e}")
-
-def get_cached_scores(jobID):
-    """
-    Retrieve cached scores for a job.
-    """
-    try:
-        cursor = mysql.connection.cursor()
-        cursor.execute("SELECT applicationID, score FROM CachedScores WHERE jobID = %s", (jobID,))
-        cached_scores = cursor.fetchall()
-        cursor.close()
-        logging.info(f"Retrieved cached scores for jobID {jobID}.")
-        return {row[0]: row[1] for row in cached_scores}
-    except Exception as e:
-        logging.error(f"Error retrieving cached scores for jobID {jobID}: {e}")
-        return {}
-
-@app.route('/sort_applications/<int:jobID>', methods=['POST', 'GET'])
-def sort_applications_sbert(jobID):
-    try:
-        logging.info(f"Received request to sort applications for jobID: {jobID}")
-        cursor = mysql.connection.cursor()
-
-        # Fetch job requirements
-        cursor.execute("SELECT requiredSkills, experienceYears, education FROM Job WHERE jobID = %s", (jobID,))
-        job = cursor.fetchone()
-
-        if not job:
-            logging.error("No job found with the given jobID.")
-            return jsonify({"error": "Job not found"}), 404
-
-        job_description = f"""
-        Required Skills: {job[0] if job[0] else "None"}.
-        Experience Years: {job[1] if job[1] else "None"}.
-        Education: {job[2] if job[2] else "None"}.
-        """
-
-        # Fetch applications for the job
         cursor.execute("""
-            SELECT ja.applicationID, ja.cvPath, u.name
+            SELECT ja.invitationID, ja.jobID
             FROM jobapplication ja
-            JOIN candidate c ON ja.candidateID = c.candidateID
-            JOIN user u ON c.userID = u.userID
-            WHERE ja.jobID = %s
-        """, (jobID,))
+            WHERE ja.candidateID = %s AND ja.invitationID IS NOT NULL
+        """, (candidate_id,))
         applications = cursor.fetchall()
-        cursor.close()
 
         if not applications:
-            logging.warning("No applications found for the given jobID.")
-            return jsonify({"message": "No applications found", "data": []}), 200
+            logging.info(f"No invitations found for candidateID: {candidate_id}")
+            return jsonify({"invitations": []}), 200  # Return empty list if no invitations are found
 
-        # Check for cached scores
-        cached_scores = get_cached_scores(jobID)
-        if len(cached_scores) == len(applications):
-            logging.info(f"Using cached scores for jobID {jobID}.")
-            cleaned_path = os.path.basename(app[1]).replace("\\", "/")  # Clean the path
-            file_url = f"{BASE_URL}{UPLOAD_FOLDER}/{cleaned_path}"  # Construct the URL
-            response = [
-                {
-                    "applicationID": app[0],
-                    "name": app[2],
-                    "cvPath": file_url,
-                    "score": cached_scores[app[0]]
-                }
-                for app in applications
-            ]
-            return jsonify({"sorted_applications": sorted(response, key=lambda x: x['score'], reverse=True)}), 200
+        invitations = []
+        for invitation_id, job_id in applications:
+            # Fetch interview invitation details
+            cursor.execute("""
+                SELECT start, end, comment
+                FROM interview_invitation
+                WHERE invitationID = %s
+            """, (invitation_id,))
+            invitation_details = cursor.fetchone()
 
+            if not invitation_details:
+                continue
 
-        # Process resumes in parallel
-        resumes = []
-        cleaned_path = os.path.basename(app[1]).replace("\\", "/")  # Clean the path
-        file_url = f"{BASE_URL}{UPLOAD_FOLDER}/{cleaned_path}"  # Construct the URL
-        application_data = [
-            {"applicationID": app[0], "name": app[2], "cvPath": file_url}
-            for app in applications
-        ]
+            # Fetch the job title
+            cursor.execute("""
+                SELECT title
+                FROM job
+                WHERE jobID = %s
+            """, (job_id,))
+            job_title = cursor.fetchone()
 
-        def process_resume(file_url):
-            try:
-                response = requests.get(file_url)
-                response.raise_for_status()
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-                    temp_filename = temp_file.name
-                    temp_file.write(response.content)
-                text = extract_resume_text(temp_filename)
-                os.remove(temp_filename)
-                return text if text else "EMPTY_RESUME"
-            except Exception as e:
-                logging.error(f"Error processing file {file_url}: {e}")
-                return "EMPTY_RESUME"
+            if not job_title:
+                continue
 
-        with ThreadPoolExecutor() as executor:
-            resume_texts = list(executor.map(lambda app: process_resume(app["cvPath"]), application_data))
+            # Append invitation details to the result list
+            invitations.append({
+                "title": job_title[0],
+                "start": invitation_details[0],
+                "end": invitation_details[1],
+                "comment": invitation_details[2],
+            })
 
-        if not resume_texts:
-            logging.error("No resumes could be read. Check the file paths or formats.")
-            return jsonify({"error": "No resumes could be read."}), 400
-
-        # Use Sentence-BERT to sort resumes
-        logging.info("Sending resumes to S-BERT for sorting...")
-        sorted_resumes = sbert_sort_resumes(job_description, resume_texts, default_score=0.0)
-
-        if not sorted_resumes:
-            logging.error("S-BERT returned no results. Check the job description or resumes.")
-            return jsonify({"error": "S-BERT returned no results."}), 500
-
-        # Combine sorted resumes with application data and cache scores
-        response = [
-            {
-                "applicationID": application_data[i]["applicationID"],
-                "name": application_data[i]["name"],
-                "cvPath": application_data[i]["cvPath"],
-                "score": sorted_resumes[i]["score"]
-            }
-            for i in range(len(application_data))
-        ]
-        cache_scores(jobID, response)
-
-        logging.info("Successfully sorted applications.")
-        return jsonify({"sorted_applications": sorted(response, key=lambda x: x['score'], reverse=True)}), 200
+        cursor.close()
+        logging.info(f"Invitations retrieved successfully for candidateID: {candidate_id}")
+        return jsonify({"invitations": invitations}), 200
 
     except Exception as e:
-        logging.error(f"Error sorting applications for jobID {jobID}: {e}")
+        logging.error(f"Error fetching invitations for candidateID {candidate_id}: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
 
 
 
@@ -507,3 +364,5 @@ def sort_applications_sbert(jobID):
 if __name__ == '__main__':
     # Enable Flask development server
     app.run(debug=True, host="0.0.0.0", port=39542)
+
+

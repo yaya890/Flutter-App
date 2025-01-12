@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'available_jobs.dart';
-import 'uploadCV.dart'; // Import the UploadCVPage.
+import 'uploadCV.dart';
+import 'jobs_interview_page.dart'; // Import the JobsInterviewPage.
 
 class CandidateHomeScreen extends StatelessWidget {
   const CandidateHomeScreen({Key? key}) : super(key: key);
@@ -84,6 +85,18 @@ class CandidateHomeScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const AvailableJobs()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.mail_outline), // Icon for Interviews Invitations
+              title: const Text("Interviews Invitations"),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => JobsInterviewPage(candidateID: '1'), // Pass candidateID
+                  ),
                 );
               },
             ),
