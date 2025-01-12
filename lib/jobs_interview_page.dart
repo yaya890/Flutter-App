@@ -40,6 +40,7 @@ class _JobsInterviewPageState extends State<JobsInterviewPage> {
             invitations = List<Map<String, String>>.from(
               data['invitations'].map(
                 (invitation) => {
+                  "invitationID": invitation["invitationID"]?.toString() ?? "",
                   "title": invitation["title"]?.toString() ?? "No Title",
                   "start": invitation["start"]?.toString() ?? "Unknown Start",
                   "end": invitation["end"]?.toString() ?? "Unknown End",
@@ -54,7 +55,8 @@ class _JobsInterviewPageState extends State<JobsInterviewPage> {
           throw Exception('Invalid data format for invitations');
         }
       } else {
-        throw Exception('Failed to load invitations. HTTP status: ${response.statusCode}');
+        throw Exception(
+            'Failed to load invitations. HTTP status: ${response.statusCode}');
       }
     } catch (error) {
       setState(() {
@@ -96,15 +98,20 @@ class _JobsInterviewPageState extends State<JobsInterviewPage> {
           isLoading
               ? const Center(child: CircularProgressIndicator())
               : errorMessage.isNotEmpty
-                  ? Center(child: Text(errorMessage, style: const TextStyle(color: Colors.red)))
+                  ? Center(
+                      child: Text(errorMessage,
+                          style: const TextStyle(color: Colors.red)))
                   : invitations.isEmpty
                       ? const Center(child: Text('No invitations found'))
                       : ListView.builder(
                           itemCount: invitations.length,
                           itemBuilder: (context, index) {
                             final invitation = invitations[index];
-                            print('Rendering invitation: $invitation'); // Debug log
+                            print(
+                                'Rendering invitation: $invitation'); // Debug log
                             return JobInterviewCard(
+                              candidateID: widget.candidateID,
+                              invitationID: invitation['invitationID']!,
                               title: invitation['title']!,
                               date: invitation['start']!.split(' ')[0],
                               time: invitation['start']!.split(' ')[1],
@@ -131,6 +138,8 @@ class _JobsInterviewPageState extends State<JobsInterviewPage> {
 }
 
 class JobInterviewCard extends StatelessWidget {
+  final String candidateID;
+  final String invitationID;
   final String title;
   final String date;
   final String time;
@@ -139,6 +148,8 @@ class JobInterviewCard extends StatelessWidget {
 
   const JobInterviewCard({
     super.key,
+    required this.candidateID,
+    required this.invitationID,
     required this.title,
     required this.date,
     required this.time,
@@ -198,7 +209,10 @@ class JobInterviewCard extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const InterviewScreen(),
+                        builder: (context) => InterviewScreen(
+                          candidateID: candidateID,
+                          invitationID: invitationID,
+                        ),
                       ),
                     );
                   },
@@ -220,6 +234,29 @@ class JobInterviewCard extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class InterviewScreen extends StatelessWidget {
+  final String candidateID;
+  final String invitationID;
+
+  const InterviewScreen(
+      {super.key, required this.candidateID, required this.invitationID});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Interview Screen'),
+      ),
+      body: Center(
+        child: Text(
+          'Candidate ID: $candidateID\nInvitation ID: $invitationID',
+          style: const TextStyle(fontSize: 18),
         ),
       ),
     );

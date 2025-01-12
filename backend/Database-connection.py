@@ -11,6 +11,7 @@ import requests
 from sentence_transformers import SentenceTransformer, util
 from concurrent.futures import ThreadPoolExecutor
 import tempfile
+import re
 
 import pdfplumber
 from flask import jsonify
@@ -24,10 +25,11 @@ import pdfplumber
 import re
 from transformers import DistilBertTokenizer, DistilBertModel
 from sklearn.metrics.pairwise import cosine_similarity
-\
 
-# Load the S-BERT model (e.g., 'all-MiniLM-L6-v2' is lightweight and efficient)
-sbert_model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
+
+#open ai key
+openai.api_key = "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"
+
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -322,7 +324,7 @@ def get_invitations():
         for invitation_id, job_id in applications:
             # Fetch interview invitation details
             cursor.execute("""
-                SELECT start, end, comment
+                SELECT start, end, comment, invitationID
                 FROM interview_invitation
                 WHERE invitationID = %s
             """, (invitation_id,))
@@ -348,6 +350,8 @@ def get_invitations():
                 "start": invitation_details[0],
                 "end": invitation_details[1],
                 "comment": invitation_details[2],
+                "invitationID": invitation_details[3],
+
             })
 
         cursor.close()
@@ -356,6 +360,198 @@ def get_invitations():
 
     except Exception as e:
         logging.error(f"Error fetching invitations for candidateID {candidate_id}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+
+
+
+
+
+
+# Example jobQuestions string stored in one line
+job_questions_raw = "1. What is your strength? 2. Describe your experience with project management. 3. How do you handle deadlines?"
+
+# Extract questions using regex for numbers followed by a period and a space
+job_questions_list = re.split(r'\d+\.\s', job_questions_raw)
+
+# Remove any empty strings and strip extra whitespace
+job_questions_list = [q.strip() for q in job_questions_list if q.strip()]
+
+# Example output:
+# ['What is your strength?', 'Describe your experience with project management.', 'How do you handle deadlines?']
+
+
+
+# chatbot
+@app.route('/start_interview', methods=['POST'])
+def start_interview():
+    try:
+        # Parse incoming data
+        data = request.json
+        invitation_id = data.get('invitationID')
+
+        if not invitation_id:
+            return jsonify({"error": "invitationID is required"}), 400
+
+        # Step 1: Get jobID from interview_invitation
+        cursor = mysql.connection.cursor()
+        cursor.execute("""
+            SELECT jobID FROM interview_invitation WHERE invitationID = %s
+        """, (invitation_id,))
+        job_id_result = cursor.fetchone()
+
+        if not job_id_result:
+            return jsonify({"error": "No job found for the provided invitationID"}), 404
+
+        job_id = job_id_result[0]
+
+        # Step 2: Get job details from the job table
+        cursor.execute("""
+            SELECT title, department, description, jobQuestions, requiredSkills, experienceYears, education 
+            FROM job WHERE jobID = %s
+        """, (job_id,))
+        job_data = cursor.fetchone()
+        cursor.close()
+
+        if not job_data:
+            return jsonify({"error": "No job details found for the provided jobID"}), 404
+
+        # Extract job details
+        title, department, description, job_questions_raw, required_skills, experience_years, education = job_data
+
+        # Step 3: Process job questions stored in one line
+        import re
+        job_questions_list = re.split(r'\d+\.\s', job_questions_raw)
+        job_questions_list = [q.strip() for q in job_questions_list if q.strip()]  # Clean and filter
+
+        # Step 4: Prepare AI conversation flow
+        job_details = {
+            "title": title,
+            "department": department,
+            "description": description,
+            "requiredSkills": required_skills,
+            "experienceYears": experience_years,
+            "education": education,
+        }
+
+        initial_prompt = f"""
+        You are an AI interviewer for the job:
+        Title: {title}
+        Department: {department}
+        Description: {description}
+        Required Skills: {required_skills}
+        Experience Years: {experience_years}
+        Education: {education}
+
+        Start by greeting the candidate and proceed with these questions:
+        {', '.join(job_questions_list)}
+        Conclude by thanking the candidate.
+        """
+
+        # Generate the initial response from the bot
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "system", "content": initial_prompt}],
+            max_tokens=500,
+            temperature=0.7,
+        )
+        bot_message = response['choices'][0]['message']['content']
+
+        return jsonify({
+            "message": "Interview started successfully.",
+            "bot_message": bot_message,
+            "job_details": job_details,  # Pass job details for evaluation later
+            "job_questions": job_questions_list
+        }), 200
+
+    except Exception as e:
+        logging.error(f"Error in /start_interview: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+
+@app.route('/send_message', methods=['POST'])
+def send_message():
+    try:
+        # Parse incoming data
+        data = request.json
+        user_message = data.get('message')
+        chat_history = data.get('chat_history')  # Full conversation context
+        invitation_id = data.get('invitationID')
+        job_details = data.get('jobDetails')  # Include job details for evaluation
+
+        if not user_message or not chat_history or not invitation_id or not job_details:
+            return jsonify({"error": "message, chat_history, invitationID, and jobDetails are required"}), 400
+
+        # Add the user's message to the chat history
+        messages = [{"role": "system", "content": "You are an AI interviewer."}] + chat_history
+        messages.append({"role": "user", "content": user_message})
+
+        # Step 1: Get the bot's response
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=messages,
+            max_tokens=500,
+            temperature=0.7,
+        )
+        bot_message = response['choices'][0]['message']['content']
+
+        # Step 2: Detect if the conversation is ending
+        is_chat_ending = "Thank you for your time" in bot_message or "interview is complete" in bot_message
+
+        if is_chat_ending:
+            # Step 3: Generate the summary
+            summary_prompt = f"""
+            Based on the following interview for the job:
+            {job_details}
+
+            The conversation is as follows:
+            {json.dumps(chat_history, indent=2)}
+
+            Evaluate the candidate's responses considering:
+            - Relevance to the job requirements and skills.
+            - Strengths and weaknesses in their responses.
+            - Performance metrics like response timing and conciseness.
+            - Provide a summary and a rating out of 10.
+            """
+            summary_response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are an AI summarizer."},
+                    {"role": "user", "content": summary_prompt}
+                ],
+                max_tokens=300,
+                temperature=0.7,
+            )
+            summary_text = summary_response['choices'][0]['message']['content']
+
+            # Extract rating from the summary
+            import re
+            rating_match = re.search(r'(\d+)/10', summary_text)
+            rating = rating_match.group(1) if rating_match else "N/A"
+
+            # Step 4: Store the summary and rating in the database
+            cursor = mysql.connection.cursor()
+            cursor.execute("""
+                INSERT INTO chatbot (invitationID, interviewSummary, rating)
+                VALUES (%s, %s, %s)
+            """, (invitation_id, summary_text, rating))
+            mysql.connection.commit()
+            cursor.close()
+
+            # Return the final bot message with no additional UI action required
+            return jsonify({"bot_message": bot_message, "is_chat_ending": True}), 200
+
+        # Return the bot's response if the conversation is ongoing
+        return jsonify({"bot_message": bot_message, "is_chat_ending": False}), 200
+
+    except Exception as e:
+        logging.error(f"Error in /send_message: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 

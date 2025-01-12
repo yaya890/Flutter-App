@@ -1,14 +1,110 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
-class InterviewScreen extends StatelessWidget {
-  const InterviewScreen({super.key});
+class InterviewScreen extends StatefulWidget {
+  final String candidateID;
+  final String invitationID;
+
+  const InterviewScreen(
+      {super.key, required this.candidateID, required this.invitationID});
+
+  @override
+  State<InterviewScreen> createState() => _InterviewScreenState();
+}
+
+class _InterviewScreenState extends State<InterviewScreen> {
+  final List<Map<String, String>> messages = [];
+  final TextEditingController _messageController = TextEditingController();
+  bool isChatEnding = false;
+  Map<String, dynamic>? jobDetails; // Holds job details from the backend
+
+  @override
+  void initState() {
+    super.initState();
+    _startChat();
+  }
+
+  Future<void> _startChat() async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://127.0.0.1:39542/start_interview'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({"invitationID": widget.invitationID}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        setState(() {
+          jobDetails = data['job_details']; // Store job details for later use
+          messages.add({"bot": data["bot_message"]});
+        });
+      } else {
+        setState(() {
+          messages.add({"bot": "Error: Unable to start the interview."});
+        });
+      }
+    } catch (e) {
+      setState(() {
+        messages.add({"bot": "Error: Failed to connect to the server."});
+      });
+    }
+  }
+
+  Future<void> _sendMessage(String userMessage) async {
+    setState(() {
+      messages.add({"user": userMessage});
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://127.0.0.1:39542/send_message'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "invitationID": widget.invitationID,
+          "jobDetails": jobDetails,
+          "message": userMessage,
+          "chat_history": messages.map((m) {
+            return {
+              "role": m.containsKey('user') ? "user" : "assistant",
+              "content": m.values.first,
+            };
+          }).toList(),
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        setState(() {
+          messages.add({"bot": data["bot_message"]});
+        });
+
+        if (data["is_chat_ending"] == true) {
+          setState(() {
+            isChatEnding = true;
+          });
+
+          // Redirect to previous page after a delay
+          Future.delayed(const Duration(seconds: 2), () {
+            Navigator.pop(context);
+          });
+        }
+      }
+    } catch (e) {
+      setState(() {
+        messages.add({"bot": "Error: Failed to connect to the server."});
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // الخلفية بلون متدرج
+          // Background gradient
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -18,63 +114,78 @@ class InterviewScreen extends StatelessWidget {
               ),
             ),
           ),
-          // المحتوى الرئيسي
           Column(
             children: [
               const SizedBox(height: 50),
-              // العنوان في المنتصف
               const Center(
                 child: Text(
                   "Interview Chatbot",
                   style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 255, 255, 255),
-                  ),
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
                 ),
               ),
               const SizedBox(height: 20),
-              // ترحيب بسيط في البداية
-              const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text(
-                  "Welcome to the Interview Chatbot! 🚀\nLet's start your interview journey.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Color.fromARGB(255, 173, 169, 179)),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final isUser = messages[index].containsKey('user');
+                    return Align(
+                      alignment:
+                          isUser ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isUser
+                              ? Colors.deepPurple.shade100
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          messages[index][isUser ? 'user' : 'bot']!,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-              Expanded(
-                child: ChatBubble(),
-              ),
-              // شريط الكتابة
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                color: Colors.white,
                 child: Row(
                   children: [
-                    // أيقونة الملفات
-                    IconButton(
-                      icon: const Icon(Icons.attach_file, color: Colors.deepPurple),
-                      onPressed: () {},
-                    ),
-                    // حقل إدخال النص
                     Expanded(
                       child: TextField(
+                        controller: _messageController,
+                        enabled: !isChatEnding,
                         decoration: InputDecoration(
-                          hintText: "Type your message...",
+                          hintText: isChatEnding
+                              ? "The interview has ended."
+                              : "Type your message...",
                           filled: true,
                           fillColor: Colors.grey.shade100,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(30),
-                            borderSide: BorderSide.none,
                           ),
                         ),
                       ),
                     ),
-                    // أيقونة الإرسال
                     IconButton(
                       icon: const Icon(Icons.send, color: Colors.deepPurple),
-                      onPressed: () {},
+                      onPressed: isChatEnding
+                          ? null
+                          : () {
+                              final userMessage =
+                                  _messageController.text.trim();
+                              if (userMessage.isNotEmpty) {
+                                _messageController.clear();
+                                _sendMessage(userMessage);
+                              }
+                            },
                     ),
                   ],
                 ),
@@ -86,87 +197,3 @@ class InterviewScreen extends StatelessWidget {
     );
   }
 }
-
-class ChatBubble extends StatelessWidget {
-  final List<Map<String, String>> messages = [
-    {
-      'user': '👤',
-      'message': "Hello, I'm John Doe. I am a Software Engineer...",
-    },
-    {
-      'bot': '🤖',
-      'message': "Hello, John! Let's get started with a few questions.",
-    },
-    {
-      'user': '👤',
-      'message': "Thank you, I'm ready!",
-    },
-    {
-      'bot': '🤖',
-      'message': "Can you explain the concept of Object-Oriented Programming (OOP)?",
-    },
-    {
-      'user': '👤',
-      'message': "OOP is a programming paradigm...",
-    },
-    {
-      'bot': '🤖',
-      'message': "Great! How would you handle exceptions in PHP?",
-    },
-  ];
-
-  ChatBubble({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: messages.length,
-      itemBuilder: (context, index) {
-        final isUser = messages[index].containsKey('user');
-        return Align(
-          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isUser ? Colors.deepPurple.shade100 : Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
-                  blurRadius: 5,
-                  offset: const Offset(2, 3),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // الأيقونة على اليسار
-                Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: Text(
-                    isUser ? messages[index]['user']! : messages[index]['bot']!,
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                ),
-                // النص داخل الفقاعة
-                Flexible(
-                  child: Text(
-                    isUser
-                        ? messages[index]['message']!
-                        : messages[index]['message']!,
-                    textAlign: TextAlign.left,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
