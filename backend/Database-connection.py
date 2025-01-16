@@ -27,9 +27,6 @@ from transformers import DistilBertTokenizer, DistilBertModel
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-#open ai key
-openai.api_key = "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"
-
 # Initialize Flask app
 app = Flask(__name__)
 
