@@ -40,10 +40,11 @@ logging.basicConfig(level=logging.INFO)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Configure MySQL connection
-app.config['MYSQL_HOST'] = 'localhost'  # Your database host
-app.config['MYSQL_USER'] = 'root'  # Your MySQL username
-app.config['MYSQL_PASSWORD'] = 'yara'  # Your MySQL password
-app.config['MYSQL_DB'] = 'ElpisHR'  # Your database name
+app.config['MYSQL_HOST'] = '168.149.62.176'  # Replace 'localhost' with your public IP address
+app.config['MYSQL_USER'] = 'root'            # Your MySQL username
+app.config['MYSQL_PASSWORD'] = 'yara'        # Your MySQL password
+app.config['MYSQL_DB'] = 'ElpisHR'           # Your database name
+
 
 # Configure file upload folder
 UPLOAD_FOLDER = 'uploads'
