@@ -1,36 +1,82 @@
 import 'package:flutter/material.dart';
-import 'available_jobs.dart';
 import 'uploadCV.dart';
-import 'jobs_interview_page.dart'; // Import the JobsInterviewPage.
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'jobs_interview_page.dart';
+import 'available_jobs.dart';
 
-class CandidateHomeScreen extends StatelessWidget {
-  const CandidateHomeScreen({super.key});
+class CandidateHomeScreen extends StatefulWidget {
+  final int candidateID; // Accept candidateID
+
+  const CandidateHomeScreen({super.key, required this.candidateID});
+
+  @override
+  _CandidateHomeScreenState createState() => _CandidateHomeScreenState();
+}
+
+class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
+  List<dynamic> jobList = [];
+  List<dynamic> applicationList = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchJobs();
+    fetchApplications();
+  }
+
+  Future<void> fetchJobs() async {
+    final url = Uri.parse('http://127.0.0.1:39542/get_filtered_jobs');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        setState(() {
+          jobList = json.decode(response.body);
+        });
+      } else {
+        throw Exception('Failed to load jobs');
+      }
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  Future<void> fetchApplications() async {
+    final url = Uri.parse('http://127.0.0.1:39542/get_my_applications');
+    try {
+      final response = await http.post(
+        url,
+        body: json.encode({"candidateID": widget.candidateID}),
+        headers: {'Content-Type': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        setState(() {
+          applicationList = json.decode(response.body);
+        });
+      } else {
+        throw Exception('Failed to load applications');
+      }
+    } catch (e) {
+      print(e);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () {
-              Scaffold.of(context).openDrawer();
-            },
-          ),
-        ),
-        actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.share),
-          ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.search),
-          ),
-        ],
         title: const Text("Hello, John Doe"),
         backgroundColor: Colors.purple,
-        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {},
+          ),
+        ],
       ),
       drawer: Drawer(
         child: ListView(
@@ -75,7 +121,7 @@ class CandidateHomeScreen extends StatelessWidget {
               leading: const Icon(Icons.home),
               title: const Text("Home"),
               onTap: () {
-                Navigator.pop(context); // Close the drawer.
+                Navigator.pop(context);
               },
             ),
             ListTile(
@@ -85,20 +131,19 @@ class CandidateHomeScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => const AvailableJobs()),
+                    builder: (context) => const AvailableJobs(),
+                  ),
                 );
               },
             ),
             ListTile(
-              leading: const Icon(
-                  Icons.mail_outline), // Icon for Interviews Invitations
+              leading: const Icon(Icons.mail_outline),
               title: const Text("Interviews Invitations"),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) =>
-                        JobsInterviewPage(candidateID: '1'), // Pass candidateID
+                    builder: (context) => JobsInterviewPage(candidateID: '1'),
                   ),
                 );
               },
@@ -107,7 +152,7 @@ class CandidateHomeScreen extends StatelessWidget {
               leading: const Icon(Icons.exit_to_app),
               title: const Text("Logout"),
               onTap: () {
-                Navigator.pop(context); // Close the drawer.
+                Navigator.pop(context);
               },
             ),
           ],
@@ -121,47 +166,64 @@ class CandidateHomeScreen extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildJobCard(context, "VR Designer", "Meta",
-                    "London, UK (Remote)", "5 days ago", 1),
-                const SizedBox(width: 16),
-                _buildJobCard(context, "Product Manager", "Meta", "Riyadh",
-                    "1 day ago", 2),
-                const SizedBox(width: 16),
-                _buildJobCard(context, "UI Designer", "Meta", "Mecca, KSA",
-                    "3 days ago", 3),
-              ],
-            ),
-          ),
+          jobList.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: jobList.map((job) {
+                      return _buildJobCard(
+                        context,
+                        job['title'],
+                        job['department'],
+                        job['requiredSkills'],
+                        job['experienceYears'],
+                        job['education'],
+                        job['description'],
+                        job['jobID'],
+                      );
+                    }).toList(),
+                  ),
+                ),
           const SizedBox(height: 24),
           _buildSectionHeader("My Applications"),
-          _buildApplicationRow("VR Designer"),
-          _buildApplicationRow("Product Manager"),
+          applicationList.isEmpty
+              ? const Text("No applications found.")
+              : Column(
+                  children: applicationList.map((application) {
+                    return _buildApplicationRow(
+                      application['jobTitle'],
+                      application['status'],
+                      application['description'],
+                      application['department'],
+                      application['requiredSkills'],
+                      application['experienceYears'],
+                      application['education'],
+                    );
+                  }).toList(),
+                ),
           const SizedBox(height: 24),
           _buildSectionHeader("My Jobs Interviews"),
           _buildInterviewRow(
               "Software Engineer", "October 25, 2024", "10:00 PM"),
-          const SizedBox(height: 24),
-          _buildSectionHeader("My Performance"),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildPerformanceCard(Icons.pie_chart, "View details"),
-              _buildPerformanceCard(Icons.bar_chart, "View details"),
-            ],
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildJobCard(BuildContext context, String title, String company,
-      String location, String timeAgo, int jobID) {
+  Widget _buildJobCard(
+    BuildContext context,
+    String title,
+    String department,
+    String requiredSkills,
+    int experienceYears,
+    String education,
+    String description,
+    int jobID,
+  ) {
     return Container(
-      width: 200,
+      width: 200, // Fixed width for cards
+      margin: const EdgeInsets.only(right: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -172,19 +234,45 @@ class CandidateHomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis, // Prevent text overflow
+          ),
           const SizedBox(height: 4),
-          Text(company),
+          Text(
+            department,
+            style: const TextStyle(fontSize: 12),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           const SizedBox(height: 4),
-          Text(location),
-          const SizedBox(height: 4),
-          Text(timeAgo,
-              style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          Text(
+            "Experience: $experienceYears years",
+            style: const TextStyle(fontSize: 12),
+          ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              TextButton(onPressed: () {}, child: const Text("View details")),
+              TextButton(
+                onPressed: () {
+                  _showJobDetailsDialog(
+                    context,
+                    title,
+                    department,
+                    description,
+                    requiredSkills,
+                    experienceYears,
+                    education,
+                  );
+                },
+                child: const Text(
+                  "View details",
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(
@@ -195,9 +283,88 @@ class CandidateHomeScreen extends StatelessWidget {
                   );
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
-                child: const Text("Apply"),
+                child: const Text(
+                  "Apply",
+                  style: TextStyle(fontSize: 12),
+                ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildApplicationRow(
+    String title,
+    String status,
+    String description,
+    String department,
+    String requiredSkills,
+    int experienceYears,
+    String education,
+  ) {
+    return ListTile(
+      leading: const CircleAvatar(
+        backgroundColor: Colors.purple,
+        child: Icon(Icons.work, color: Colors.white),
+      ),
+      title: Text(title),
+      subtitle: Text("Status: $status"),
+      trailing: Text(
+        status,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Colors.blue,
+        ),
+      ),
+      onTap: () {
+        _showJobDetailsDialog(
+          context,
+          title,
+          department,
+          description,
+          requiredSkills,
+          experienceYears,
+          education,
+        );
+      },
+    );
+  }
+
+  void _showJobDetailsDialog(
+    BuildContext context,
+    String title,
+    String department,
+    String description,
+    String requiredSkills,
+    int experienceYears,
+    String education,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Department: $department"),
+              const SizedBox(height: 8),
+              Text("Description: $description"),
+              const SizedBox(height: 8),
+              Text("Required Skills: $requiredSkills"),
+              const SizedBox(height: 8),
+              Text("Experience: $experienceYears years"),
+              const SizedBox(height: 8),
+              Text("Education: $education"),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
           ),
         ],
       ),
@@ -214,27 +381,6 @@ class CandidateHomeScreen extends StatelessWidget {
         ),
         TextButton(onPressed: () {}, child: const Text("See all")),
       ],
-    );
-  }
-
-  Widget _buildApplicationRow(String jobTitle) {
-    return ListTile(
-      leading: const CircleAvatar(
-        backgroundColor: Colors.purple,
-        child: Icon(Icons.work, color: Colors.white),
-      ),
-      title: Text(jobTitle),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextButton(onPressed: () {}, child: const Text("View details")),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
-            child: const Text("Status"),
-          ),
-        ],
-      ),
     );
   }
 
@@ -257,20 +403,6 @@ class CandidateHomeScreen extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildPerformanceCard(IconData icon, String label) {
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 30,
-          backgroundColor: Colors.purple.shade100,
-          child: Icon(icon, color: Colors.purple, size: 30),
-        ),
-        const SizedBox(height: 8),
-        TextButton(onPressed: () {}, child: Text(label)),
-      ],
     );
   }
 }

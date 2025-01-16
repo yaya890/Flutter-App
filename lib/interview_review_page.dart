@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'interview_summary_screen.dart'; // Import the summary screen
+import 'interview_summary_screen.dart';
+import 'interview_invitation.dart';
 
 class InterviewReviewPage extends StatelessWidget {
   final List<Map<String, String>> interviews = [
@@ -38,94 +39,82 @@ class InterviewReviewPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 120, 59, 129),
-      body: Stack(
-        children: [
-          _buildDecorativeCircles(),
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Text(
-                    'Interviews Review',
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.deepPurple, Colors.purpleAccent],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Column(
+          children: [
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  'Interviews Review',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: interviews.length,
+                itemBuilder: (context, index) {
+                  final interview = interviews[index];
+                  return _buildInterviewCard(interview, context);
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => InterviewInvitationPage(),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.deepPurple,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(Icons.mail_outline,
+                      color: Colors.white, size: 24),
+                  label: const Text(
+                    'View Invitations',
                     style: TextStyle(
-                      fontSize: 28,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: const Color.fromARGB(255, 255, 255, 255),
+                      color: Colors.white,
                     ),
                   ),
                 ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: interviews.length,
-                    itemBuilder: (context, index) {
-                      final interview = interviews[index];
-                      return _buildInterviewCard(interview, context);
-                    },
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildDecorativeCircles() {
-    return Stack(
-      children: [
-        Positioned(
-          top: -60,
-          left: -60,
-          child: _buildCircle(180, Color.fromARGB(
-            (0.3 * 255).toInt(),
-            Colors.purple.shade200.red,
-            Colors.purple.shade200.green,
-            Colors.purple.shade200.blue,
-          )),
-        ),
-        Positioned(
-          bottom: -80,
-          right: -80,
-          child: _buildCircle(200, Color.fromARGB(
-            (0.2 * 255).toInt(),
-            Colors.purple.shade300.red,
-            Colors.purple.shade300.green,
-            Colors.purple.shade300.blue,
-          )),
-        ),
-        Positioned(
-          top: 100,
-          right: -50,
-          child: _buildCircle(150, Color.fromARGB(
-            (0.4 * 255).toInt(),
-            Colors.purple.shade100.red,
-            Colors.purple.shade100.green,
-            Colors.purple.shade100.blue,
-          )),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCircle(double size, Color color) {
+  Widget _buildInterviewCard(
+      Map<String, String> interview, BuildContext context) {
     return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-
-  Widget _buildInterviewCard(Map<String, String> interview, BuildContext context) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      padding: EdgeInsets.all(15),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
@@ -134,7 +123,7 @@ class InterviewReviewPage extends StatelessWidget {
             color: Colors.grey.withOpacity(0.2),
             spreadRadius: 2,
             blurRadius: 8,
-            offset: Offset(0, 4),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -142,31 +131,31 @@ class InterviewReviewPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildIcon(),
-          SizedBox(width: 15),
+          const SizedBox(width: 15),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   interview['title']!,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.deepPurple,
                   ),
                 ),
-                SizedBox(height: 5),
+                const SizedBox(height: 5),
                 Text(
                   'Candidate Name: ${interview['candidate']}',
-                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
                 ),
                 Text(
                   'Interview Status: ${interview['status']}',
-                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
                 ),
                 Text(
                   'Interview Outcome: ${interview['outcome']}',
-                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
                 ),
               ],
             ),
@@ -186,14 +175,14 @@ class InterviewReviewPage extends StatelessWidget {
                   }
                 : null, // Disable for other actions
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color.fromARGB(159, 125, 44, 157),
+              backgroundColor: Colors.deepPurple,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
             child: Text(
               interview['action']!,
-              style: TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         ],
@@ -203,7 +192,7 @@ class InterviewReviewPage extends StatelessWidget {
 
   Widget _buildIcon() {
     return Container(
-      padding: EdgeInsets.all(10),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.purple.shade100,
         shape: BoxShape.circle,

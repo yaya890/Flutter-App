@@ -27,6 +27,8 @@ from transformers import DistilBertTokenizer, DistilBertModel
 from sklearn.metrics.pairwise import cosine_similarity
 
 
+#open ai key
+openai.api_key = "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"
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -420,7 +422,6 @@ def start_interview():
         title, department, description, job_questions_raw, required_skills, experience_years, education = job_data
 
         # Step 3: Process job questions stored in one line
-        import re
         job_questions_list = re.split(r'\d+\.\s', job_questions_raw)
         job_questions_list = [q.strip() for q in job_questions_list if q.strip()]  # Clean and filter
 
@@ -443,16 +444,22 @@ def start_interview():
         Experience Years: {experience_years}
         Education: {education}
 
-        Start by greeting the candidate and proceed with these questions:
-        {', '.join(job_questions_list)}
-        Conclude by thanking the candidate.
+        Start the interview in a conversational manner:
+        1. Greet the candidate warmly and wait for their response.
+        2. Briefly explain the job role to the candidate.
+        3. Start asking the job questions one by one from the provided list.
+        4. Engage dynamically with their responses and make follow-up comments or questions relevant to the job role.
+        5. Conclude by thanking the candidate.
         """
 
-        # Generate the initial response from the bot
+        # Generate the initial greeting message from the bot
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "system", "content": initial_prompt}],
-            max_tokens=500,
+            messages=[
+                {"role": "system", "content": initial_prompt},
+                {"role": "user", "content": "Start the interview by greeting the candidate."},
+            ],
+            max_tokens=200,
             temperature=0.7,
         )
         bot_message = response['choices'][0]['message']['content']
@@ -460,8 +467,9 @@ def start_interview():
         return jsonify({
             "message": "Interview started successfully.",
             "bot_message": bot_message,
-            "job_details": job_details,  # Pass job details for evaluation later
-            "job_questions": job_questions_list
+            "job_details": job_details,  # Pass job details for dynamic evaluation in send_message
+            "job_questions": job_questions_list,  # Pass the list of questions
+            "currentQuestionIndex": 0  # Start from the first question
         }), 200
 
     except Exception as e:
@@ -469,87 +477,543 @@ def start_interview():
         return jsonify({"error": str(e)}), 500
 
 
-
-
-
+# Endpoint: Send Message
 @app.route('/send_message', methods=['POST'])
 def send_message():
     try:
         # Parse incoming data
         data = request.json
         user_message = data.get('message')
-        chat_history = data.get('chat_history')  # Full conversation context
-        invitation_id = data.get('invitationID')
-        job_details = data.get('jobDetails')  # Include job details for evaluation
+        chat_history = data.get('chat_history', [])
+        job_details = data.get('jobDetails')
+        current_question_index = data.get('currentQuestionIndex')
+        job_questions = data.get('jobQuestions')
+        invitation_id = data.get('invitationID')  # Add interview ID for identifying interviews
 
-        if not user_message or not chat_history or not invitation_id or not job_details:
-            return jsonify({"error": "message, chat_history, invitationID, and jobDetails are required"}), 400
+        # Validate required fields
+        if not user_message:
+            return jsonify({"error": "Missing field: 'message'"}), 400
+        if not job_details:
+            return jsonify({"error": "Missing field: 'jobDetails'"}), 400
+        if current_question_index is None:
+            return jsonify({"error": "Missing field: 'currentQuestionIndex'"}), 400
+        if not job_questions:
+            return jsonify({"error": "Missing field: 'jobQuestions'"}), 400
 
-        # Add the user's message to the chat history
-        messages = [{"role": "system", "content": "You are an AI interviewer."}] + chat_history
-        messages.append({"role": "user", "content": user_message})
+        # Add user's message to chat history
+        chat_history.append({"role": "user", "content": user_message})
 
-        # Step 1: Get the bot's response
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            max_tokens=500,
-            temperature=0.7,
-        )
-        bot_message = response['choices'][0]['message']['content']
+        # Determine the flow
+        is_chat_ending = False
+        ask_for_questions = False
+        bot_message = ""
 
-        # Step 2: Detect if the conversation is ending
-        is_chat_ending = "Thank you for your time" in bot_message or "interview is complete" in bot_message
+        if current_question_index < len(job_questions):
+            # If there are more questions, proceed to the next question
+            next_question = job_questions[current_question_index]
+            current_question_index += 1
+            bot_message = f"Thank you for sharing! Here's the next question: {next_question}"
+        elif current_question_index == len(job_questions):
+            # If all questions are done, ask if the candidate has questions
+            ask_for_questions = True
+            bot_message = "Thank you for answering all our questions. Do you have any questions you'd like to ask about the role, our team, or the company?"
+            current_question_index += 1
+        elif ask_for_questions and user_message.lower() in ["yes", "yeah", "yup", "sure"]:
+            # Candidate wants to ask a question
+            bot_message = "Great! Please go ahead and ask your question."
+        elif ask_for_questions and user_message.lower() not in ["yes", "yeah", "yup", "sure", "no", "nah"]:
+            # Respond to candidate's question
+            follow_up_prompt = f"""
+            You are an AI interviewer. The candidate asked:
+            "{user_message}"
 
-        if is_chat_ending:
-            # Step 3: Generate the summary
-            summary_prompt = f"""
-            Based on the following interview for the job:
-            {job_details}
+            Please provide a clear, professional, and relevant answer to their question based on the following job details:
+            {json.dumps(job_details, indent=2)}.
 
-            The conversation is as follows:
-            {json.dumps(chat_history, indent=2)}
-
-            Evaluate the candidate's responses considering:
-            - Relevance to the job requirements and skills.
-            - Strengths and weaknesses in their responses.
-            - Performance metrics like response timing and conciseness.
-            - Provide a summary and a rating out of 10.
+            After providing your response, ask if they have more questions.
             """
-            summary_response = openai.ChatCompletion.create(
+            response_to_question = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "You are an AI summarizer."},
-                    {"role": "user", "content": summary_prompt}
+                    {"role": "system", "content": "You are an AI interviewer."},
+                    {"role": "user", "content": follow_up_prompt},
                 ],
                 max_tokens=300,
                 temperature=0.7,
             )
-            summary_text = summary_response['choices'][0]['message']['content']
+            response_to_question_message = response_to_question['choices'][0]['message']['content']
+            bot_message = f"{response_to_question_message}\n\nDo you have any other questions I can assist you with?"
+        elif "no" in user_message.lower():
+            # Candidate says they have no more questions
+            bot_message = "Thank you for your time and for participating in this interview! We appreciate your responses and interest in the role. Have a great day!"
+            is_chat_ending = True
 
-            # Extract rating from the summary
-            import re
-            rating_match = re.search(r'(\d+)/10', summary_text)
-            rating = rating_match.group(1) if rating_match else "N/A"
+        # Add bot's message to chat history
+        chat_history.append({"role": "assistant", "content": bot_message})
 
-            # Step 4: Store the summary and rating in the database
-            cursor = mysql.connection.cursor()
-            cursor.execute("""
-                INSERT INTO chatbot (invitationID, interviewSummary, rating)
-                VALUES (%s, %s, %s)
-            """, (invitation_id, summary_text, rating))
-            mysql.connection.commit()
-            cursor.close()
+        # If chat is ending, generate the summary
+        if is_chat_ending:
+            summary_prompt = f"""
+            Based on the following conversation history, generate a detailed interview summary:
 
-            # Return the final bot message with no additional UI action required
-            return jsonify({"bot_message": bot_message, "is_chat_ending": True}), 200
+            Chat History:
+            {json.dumps(chat_history, indent=2)}
 
-        # Return the bot's response if the conversation is ongoing
-        return jsonify({"bot_message": bot_message, "is_chat_ending": False}), 200
+            Job Details:
+            {json.dumps(job_details, indent=2)}
+
+            Include:
+            - How the interview went.
+            - How the candidate performed based on their answers.
+            - Whether they are a good match for the job requirements.
+            - A score out of 10 on how well they match the job based on this interview.
+            """
+            summary_response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are an AI interviewer."},
+                    {"role": "user", "content": summary_prompt},
+                ],
+                max_tokens=500,
+                temperature=0.7,
+            )
+            summary = summary_response['choices'][0]['message']['content']
+
+            # Save the summary in the database
+            try:
+                
+                cursor = mysql.connection.cursor()
+                cursor.execute(
+                   """
+                   INSERT INTO chatbot (summary, invitationID)
+                   VALUES (%s, %s)
+                   """,
+                   (summary, invitation_id),
+                )
+                conn.commit()
+                conn.close()
+            except Exception as db_error:
+                logging.error(f"Database error: {str(db_error)}")
+
+        return jsonify({
+            "bot_message": bot_message,
+            "currentQuestionIndex": current_question_index,
+            "chat_history": chat_history,
+            "is_chat_ending": is_chat_ending
+        }), 200
 
     except Exception as e:
         logging.error(f"Error in /send_message: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+
+
+
+
+# HR invitations 
+@app.route('/interview_invitations', methods=['GET'])
+def get_interview_invitations():
+    try:
+        # Connect to the database
+        cursor = mysql.connection.cursor()
+
+        # Query to retrieve interview invitations with job titles and jobID
+        cursor.execute("""
+            SELECT 
+                i.start AS start, 
+                i.end AS end, 
+                i.comment AS comment, 
+                j.title AS title,
+                i.jobID AS jobID
+            FROM 
+                interview_invitation i
+            JOIN 
+                job j ON i.jobID = j.jobID
+        """)
+
+        # Fetch all results
+        results = cursor.fetchall()
+        cursor.close()
+
+        # Format the results into JSON
+        invitations = [
+            {
+                "start": str(row[0]),
+                "end": str(row[1]),
+                "comment": row[2],
+                "title": row[3],
+                "jobID": row[4]  # Include jobID in the response
+            }
+            for row in results
+        ]
+
+        logging.info("Interview invitations retrieved successfully.")
+        return jsonify(invitations), 200
+    except Exception as e:
+        logging.error(f"Error retrieving interview invitations: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+### Endpoint 1: Fetch Jobs
+@app.route('/get_all_jobs', methods=['GET'])
+def get_all_jobs():
+    try:
+        cursor = mysql.connection.cursor()
+        query = "SELECT jobID, title FROM job"
+        cursor.execute(query)
+        jobs = cursor.fetchall()
+        cursor.close()
+
+        # Format response as a list of dictionaries
+        job_list = [{"jobID": job[0], "title": job[1]} for job in jobs]
+
+        return jsonify(job_list), 200
+    except Exception as e:
+        logging.error(f"Error fetching jobs: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+### Endpoint 2: Add New Invitation
+@app.route('/add_invitation', methods=['POST'])
+def add_invitation():
+    try:
+        # Parse JSON request data
+        data = request.json
+        job_id = data.get('jobID')
+        start = data.get('start')
+        end = data.get('end')
+        comment = data.get('comment')
+
+        # Validate required fields
+        if not all([job_id, start, end, comment]):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        # Insert data into the interview_invitation table
+        cursor = mysql.connection.cursor()
+        query = """
+            INSERT INTO interview_invitation (jobID, start, end, comment)
+            VALUES (%s, %s, %s, %s)
+        """
+        cursor.execute(query, (job_id, start, end, comment))
+        mysql.connection.commit()
+        cursor.close()
+
+        logging.info(f"New invitation added: jobID={job_id}, start={start}, end={end}")
+        return jsonify({"message": "Invitation added successfully"}), 201
+    except Exception as e:
+        logging.error(f"Error adding invitation: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+# get top candidates 
+# Get top candidates
+@app.route('/get_top_candidates', methods=['GET'])
+def get_top_candidates():
+    try:
+        # Get jobID from query parameters
+        job_id = request.args.get('jobID')
+        if not job_id:
+            return jsonify({"error": "jobID is required"}), 400
+
+        # Connect to the database
+        cursor = mysql.connection.cursor()
+
+        # Query to retrieve candidates and their scores
+        cursor.execute("""
+            SELECT 
+                ja.candidateID, 
+                ja.last_ranking, 
+                ja.last_score
+            FROM 
+                jobapplication ja
+            WHERE 
+                ja.jobID = %s
+        """, (job_id,))
+        job_applications = cursor.fetchall()
+
+        if not job_applications:
+            return jsonify({"message": "No candidates found for the given jobID"}), 404
+
+        # Build a list of candidate details
+        candidates = []
+        for candidate_id, last_ranking, last_score in job_applications:
+            # Get the userID of the candidate
+            cursor.execute("""
+                SELECT userID 
+                FROM candidate 
+                WHERE candidateID = %s
+            """, (candidate_id,))
+            user = cursor.fetchone()
+
+            if not user:
+                continue
+
+            user_id = user[0]
+
+            # Get the name of the user
+            cursor.execute("""
+                SELECT name 
+                FROM user 
+                WHERE userID = %s
+            """, (user_id,))
+            user_name = cursor.fetchone()
+
+            if not user_name:
+                continue
+
+            candidates.append({
+                "candidateID": candidate_id,  # Include candidateID
+                "name": user_name[0],
+                "last_ranking": last_ranking,
+                "last_score": last_score
+            })
+
+        cursor.close()
+
+        # Sort candidates by last_score (descending) and last_ranking (ascending)
+        sorted_candidates = sorted(
+            candidates,
+            key=lambda x: (x["last_ranking"], -x["last_score"])
+        )
+
+        # Add the jobID at the end of the list
+        sorted_candidates.append({"jobID": job_id})
+
+        logging.info(f"Top candidates retrieved successfully for jobID: {job_id}")
+        return jsonify(sorted_candidates), 200
+
+    except Exception as e:
+        logging.error(f"Error retrieving top candidates: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+
+#get jobs for home page
+@app.route('/get_filtered_jobs', methods=['GET'])
+def get_filtered_jobs():
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("""
+            SELECT jobID, title, department, requiredSkills, experienceYears, education, description
+            FROM Job
+            WHERE status = 'open'
+        """)
+        jobs = cursor.fetchall()
+        cursor.close()
+
+        # Convert results to a list of dictionaries
+        result = [
+            {
+                "jobID": job[0],
+                "title": job[1],
+                "department": job[2],
+                "requiredSkills": job[3],
+                "experienceYears": job[4],
+                "education": job[5],
+                "description": job[6]
+            }
+            for job in jobs
+        ]
+
+        logging.info("Filtered jobs retrieved successfully.")
+        return jsonify(result), 200
+    except Exception as e:
+        logging.error(f"Error retrieving filtered jobs: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+# get my appplications
+@app.route('/get_my_applications', methods=['POST'])
+def get_my_applications():
+    data = request.get_json()
+    candidate_id = data.get('candidateID')
+
+    if not candidate_id:
+        return jsonify({"error": "candidateID is required"}), 400
+
+    try:
+        cursor = mysql.connection.cursor()
+
+        # Fetch applications for the given candidateID
+        cursor.execute("""
+            SELECT jobapplication.jobID, jobapplication.status, job.title AS jobTitle,
+                   job.department, job.description, job.requiredSkills,
+                   job.experienceYears, job.education
+            FROM jobapplication
+            INNER JOIN job ON jobapplication.jobID = job.jobID
+            WHERE jobapplication.candidateID = ?
+        """, (candidate_id,))
+        applications = cursor.fetchall()
+
+        # Convert query results to a list of dictionaries
+        results = [dict(app) for app in applications]
+
+        conn.close()
+        return jsonify(results), 200
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({"error": "An error occurred"}), 500
+
+
+
+
+
+
+#sort CVs
+def extract_resume_text(file_path):
+    """
+    Extract text from a PDF file using pdfplumber.
+    """
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            text = ''.join([page.extract_text() for page in pdf.pages if page.extract_text()])
+        return text.strip()
+    except Exception as e:
+        logging.error(f"Error extracting text from PDF: {e}")
+        return ""
+
+
+def sbert_sort_resumes(job_description, ):
+    """
+    Use Sentence-BERT to rank resumes based on a jresumesob description.
+    """
+    try:
+        # Encode the job description
+        job_embedding = sbert_model.encode(job_description, convert_to_tensor=True)
+
+        # Encode all resumes
+        resume_embeddings = sbert_model.encode(resumes, convert_to_tensor=True)
+
+        # Compute cosine similarity scores
+        similarities = util.pytorch_cos_sim(job_embedding, resume_embeddings)
+
+        # Prepare the results with scores
+        results = [{"resume": resumes[i], "score": float(similarities[0][i])} for i in range(len(resumes))]
+
+        # Sort resumes by score (descending order)
+        sorted_results = sorted(results, key=lambda x: x['score'], reverse=True)
+
+        return sorted_results
+
+    except Exception as e:
+        logging.error(f"Error using Sentence-BERT: {e}")
+        return []
+
+
+@app.route('/sort_applications/<int:jobID>', methods=['POST', 'GET'])
+def sort_applications_sbert(jobID):
+    try:
+        logging.info(f"Received request to sort applications for jobID: {jobID}")
+        cursor = mysql.connection.cursor()
+
+        # Fetch job requirements
+        cursor.execute("SELECT requiredSkills, experienceYears, education FROM Job WHERE jobID = %s", (jobID,))
+        job = cursor.fetchone()
+
+        if not job:
+            logging.error("No job found with the given jobID.")
+            return jsonify({"error": "Job not found"}), 404
+
+        job_description = f"""
+        Required Skills: {job[0] if job[0] else "None"}.
+        Experience Years: {job[1] if job[1] else "None"}.
+        Education: {job[2] if job[2] else "None"}.
+        """
+
+        # Fetch applications for the job
+        cursor.execute("""
+            SELECT ja.applicationID, ja.cvPath, u.name
+            FROM jobapplication ja
+            JOIN candidate c ON ja.candidateID = c.candidateID
+            JOIN user u ON c.userID = u.userID
+            WHERE ja.jobID = %s
+        """, (jobID,))
+        applications = cursor.fetchall()
+        cursor.close()
+
+        if not applications:
+            logging.warning("No applications found for the given jobID.")
+            return jsonify({"message": "No applications found", "data": []}), 200
+
+        resumes = []
+        application_data = []
+
+        # Process resumes
+        for app in applications:
+            cleaned_path = os.path.basename(app[1]).replace("\\", "/")
+            file_url = f"{BASE_URL}{UPLOAD_FOLDER}/{cleaned_path}"
+            application_data.append({"applicationID": app[0], "name": app[2], "cvPath": file_url})
+            logging.info(f"Processing resume from URL: {file_url}")
+
+            try:
+                # Download and read the resume file
+                response = requests.get(file_url)
+                response.raise_for_status()
+
+                # Save the resume temporarily
+                temp_filename = f"temp_{app[0]}.pdf"
+                with open(temp_filename, "wb") as temp_file:
+                    temp_file.write(response.content)
+
+                # Extract text from the resume
+                text = extract_resume_text(temp_filename)
+                if text:
+                    resumes.append(text)
+                else:
+                    logging.warning(f"Resume text is empty for applicationID {app[0]}.")
+
+                # Remove the temporary file
+                os.remove(temp_filename)
+
+            except Exception as e:
+                logging.error(f"Error processing file {file_url}: {e}")
+
+        if not resumes:
+            logging.error("No resumes could be read. Check the file paths or formats.")
+            return jsonify({"error": "No resumes could be read."}), 400
+
+        # Use Sentence-BERT to sort resumes
+        logging.info("Sending resumes to S-BERT for sorting...")
+        sorted_resumes = sbert_sort_resumes(job_description, resumes)
+
+        if not sorted_resumes:
+            logging.error("S-BERT returned no results. Check the job description or resumes.")
+            return jsonify({"error": "S-BERT returned no results."}), 500
+
+        # Combine sorted resumes with application data
+        response = [
+            {
+                "applicationID": application_data[i]["applicationID"],
+                "name": application_data[i]["name"],
+                "cvPath": application_data[i]["cvPath"],
+                "score": sorted_resumes[i]["score"]
+            }
+            for i in range(len(sorted_resumes))
+        ]
+
+        logging.info("Successfully sorted applications.")
+        return jsonify({"sorted_applications": response}), 200
+
+    except Exception as e:
+        logging.error(f"Error sorting applications for jobID {jobID}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+
+
+
 
 
 

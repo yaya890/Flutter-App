@@ -1,5 +1,103 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'newInvitation.dart';
 
+// Model Class for Invitation Data
+class InterviewInvitation {
+  final String title;
+  final DateTime start;
+  final DateTime end;
+  final String comment;
+  final int jobID;
+
+  InterviewInvitation({
+    required this.title,
+    required this.start,
+    required this.end,
+    required this.comment,
+    required this.jobID,
+  });
+
+  factory InterviewInvitation.fromJson(Map<String, dynamic> json) {
+    return InterviewInvitation(
+      title: json['title'],
+      start: DateTime.parse(json['start']),
+      end: DateTime.parse(json['end']),
+      comment: json['comment'],
+      jobID: json['jobID'],
+    );
+  }
+}
+
+// Model Class for Candidate Data
+class Candidate {
+  final int candidateID;
+  final String name;
+  final double lastScore;
+  final int lastRanking;
+
+  Candidate({
+    required this.candidateID,
+    required this.name,
+    required this.lastScore,
+    required this.lastRanking,
+  });
+
+  factory Candidate.fromJson(Map<String, dynamic> json) {
+    return Candidate(
+      candidateID: json['candidateID'],
+      name: json['name'],
+      lastScore: json['last_score'],
+      lastRanking: json['last_ranking'],
+    );
+  }
+}
+
+// Fetch Invitations from API
+Future<List<InterviewInvitation>> fetchInvitations() async {
+  final response =
+      await http.get(Uri.parse('http://127.0.0.1:39542/interview_invitations'));
+
+  if (response.statusCode == 200) {
+    List<dynamic> data = jsonDecode(response.body);
+    return data.map((json) => InterviewInvitation.fromJson(json)).toList();
+  } else {
+    throw Exception('Failed to load invitations');
+  }
+}
+
+// Fetch Top Candidates
+Future<List<Candidate>> fetchTopCandidates(int jobID) async {
+  final response = await http
+      .get(Uri.parse('http://127.0.0.1:39542/get_top_candidates?jobID=$jobID'));
+
+  if (response.statusCode == 200) {
+    List<dynamic> data = jsonDecode(response.body);
+    data.removeWhere((item) => item.containsKey('jobID')); // Remove jobID
+    return data.map((json) => Candidate.fromJson(json)).toList();
+  } else {
+    throw Exception('Failed to load top candidates');
+  }
+}
+
+// Send Invitation
+Future<void> sendInvitation(int jobID, List<int> candidateIDs) async {
+  final response = await http.post(
+    Uri.parse('http://127.0.0.1:39542/send_invite'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({
+      'jobID': jobID,
+      'candidateIDs': candidateIDs,
+    }),
+  );
+
+  if (response.statusCode != 200) {
+    throw Exception('Failed to send invitation');
+  }
+}
+
+// Main Page
 class InterviewInvitationPage extends StatelessWidget {
   const InterviewInvitationPage({super.key});
 
@@ -25,39 +123,41 @@ class InterviewInvitationPage extends StatelessWidget {
         child: Column(
           children: [
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(20),
-                children: const [
-                  InterviewCard(
-                    role: "Software Engineer",
-                    name: "John Doe",
-                    interviewDate: "October 20, 2024",
-                    interviewTime: "2:00 PM (EST)",
-                    deadline: "October 18, 2024",
-                    comments:
-                        "Please prepare for technical questions related to programming languages, algorithms, and software development methodologies. Be ready to discuss your previous projects and experiences.",
-                  ),
-                  SizedBox(height: 20),
-                  InterviewCard(
-                    role: "Marketing Specialist",
-                    name: "Sophia Davis",
-                    interviewDate: "October 22, 2024",
-                    interviewTime: "10:00 AM (EST)",
-                    deadline: "October 20, 2024",
-                    comments:
-                        "Be ready to discuss your previous projects and experiences.",
-                  ),
-                  SizedBox(height: 20),
-                  InterviewCard(
-                    role: "Product Manager",
-                    name: "Ethan Miller",
-                    interviewDate: "October 25, 2024",
-                    interviewTime: "1:00 PM (EST)",
-                    deadline: "October 23, 2024",
-                    comments:
-                        "Please reflect on your approach to product vision and strategy during the interview.",
-                  ),
-                ],
+              child: FutureBuilder<List<InterviewInvitation>>(
+                future: fetchInvitations(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text('No invitations found.'));
+                  } else {
+                    final invitations = snapshot.data!;
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(20),
+                      itemCount: invitations.length,
+                      itemBuilder: (context, index) {
+                        final invitation = invitations[index];
+                        return Column(
+                          children: [
+                            InterviewCard(
+                              role: invitation.title,
+                              name: "N/A",
+                              start:
+                                  "${invitation.start.toLocal().toString().split(' ')[0]} ${invitation.start.toLocal().toString().split(' ')[1]}",
+                              end:
+                                  "${invitation.end.toLocal().toString().split(' ')[0]} ${invitation.end.toLocal().toString().split(' ')[1]}",
+                              comments: invitation.comment,
+                              jobID: invitation.jobID,
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                        );
+                      },
+                    );
+                  }
+                },
               ),
             ),
             Padding(
@@ -66,18 +166,24 @@ class InterviewInvitationPage extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    // Add action for "+ New Invitation"
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const NewInvitation()),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.deepPurple, // Button background color
+                    backgroundColor:
+                        Colors.deepPurple, // Button background color
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 24),
+                  icon: const Icon(Icons.add_circle_outline,
+                      color: Colors.white, size: 24),
                   label: const Text(
-                    '+ New Invitation',
+                    'New Invitation',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -94,22 +200,23 @@ class InterviewInvitationPage extends StatelessWidget {
   }
 }
 
+// Card Widget for Each Invitation
 class InterviewCard extends StatelessWidget {
   final String role;
   final String name;
-  final String interviewDate;
-  final String interviewTime;
-  final String deadline;
+  final String start;
+  final String end;
   final String comments;
+  final int jobID;
 
   const InterviewCard({
     super.key,
     required this.role,
     required this.name,
-    required this.interviewDate,
-    required this.interviewTime,
-    required this.deadline,
+    required this.start,
+    required this.end,
     required this.comments,
+    required this.jobID,
   });
 
   @override
@@ -153,24 +260,10 @@ class InterviewCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              const Icon(Icons.person, color: Colors.white70, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.white70,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
               const Icon(Icons.calendar_today, color: Colors.white70, size: 18),
               const SizedBox(width: 8),
               Text(
-                "Date: $interviewDate, Time: $interviewTime",
+                "Start: $start",
                 style: const TextStyle(
                   fontSize: 14,
                   color: Colors.white70,
@@ -184,7 +277,7 @@ class InterviewCard extends StatelessWidget {
               const Icon(Icons.timer, color: Colors.white70, size: 18),
               const SizedBox(width: 8),
               Text(
-                "Deadline: $deadline",
+                "End: $end",
                 style: const TextStyle(
                   fontSize: 14,
                   color: Colors.white70,
@@ -218,10 +311,19 @@ class InterviewCard extends StatelessWidget {
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.deepPurple,
                 ),
-                onPressed: () {},
+                onPressed: () async {
+                  final candidates = await fetchTopCandidates(jobID);
+                  showDialog(
+                    context: context,
+                    builder: (_) => CandidateSelectionDialog(
+                      candidates: candidates,
+                      jobID: jobID,
+                    ),
+                  );
+                },
                 icon: const Icon(Icons.send, size: 16),
                 label: const Text(
-                  'Send',
+                  'Send to...',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -229,6 +331,85 @@ class InterviewCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// Candidate Selection Dialog
+class CandidateSelectionDialog extends StatefulWidget {
+  final List<Candidate> candidates;
+  final int jobID;
+
+  const CandidateSelectionDialog({
+    super.key,
+    required this.candidates,
+    required this.jobID,
+  });
+
+  @override
+  _CandidateSelectionDialogState createState() =>
+      _CandidateSelectionDialogState();
+}
+
+class _CandidateSelectionDialogState extends State<CandidateSelectionDialog> {
+  late Map<int, bool> selectedCandidatesMap;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize the state for each candidate's checkbox
+    selectedCandidatesMap = {
+      for (var candidate in widget.candidates) candidate.candidateID: false
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Select Candidates"),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: widget.candidates.map((candidate) {
+            return CheckboxListTile(
+              title: Text(candidate.name),
+              subtitle: Text(
+                  "Score: ${candidate.lastScore.toStringAsFixed(2)}, Ranking: ${candidate.lastRanking}"),
+              value: selectedCandidatesMap[candidate.candidateID],
+              onChanged: (checked) {
+                setState(() {
+                  selectedCandidatesMap[candidate.candidateID] =
+                      checked ?? false;
+                });
+              },
+            );
+          }).toList(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () async {
+            // Extract selected candidates
+            final selectedCandidates = selectedCandidatesMap.entries
+                .where((entry) => entry.value)
+                .map((entry) => entry.key)
+                .toList();
+
+            if (selectedCandidates.isNotEmpty) {
+              await sendInvitation(widget.jobID, selectedCandidates);
+            }
+
+            Navigator.of(context).pop();
+          },
+          child: const Text("Send"),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: const Text("Cancel"),
+        ),
+      ],
     );
   }
 }

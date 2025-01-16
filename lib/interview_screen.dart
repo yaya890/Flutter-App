@@ -16,8 +16,11 @@ class InterviewScreen extends StatefulWidget {
 class _InterviewScreenState extends State<InterviewScreen> {
   final List<Map<String, String>> messages = [];
   final TextEditingController _messageController = TextEditingController();
-  bool isChatEnding = false;
+  bool isChatEnding = false; // Marks whether the interview has ended
+  bool showEndButton = false; // Displays the "End" button after completion
   Map<String, dynamic>? jobDetails; // Holds job details from the backend
+  List<dynamic>? jobQuestions; // Holds job questions from the backend
+  int currentQuestionIndex = 0; // Tracks the current question index
 
   @override
   void initState() {
@@ -38,6 +41,8 @@ class _InterviewScreenState extends State<InterviewScreen> {
 
         setState(() {
           jobDetails = data['job_details']; // Store job details for later use
+          jobQuestions = data['job_questions']; // Store job questions list
+          currentQuestionIndex = data['currentQuestionIndex'] ?? 0;
           messages.add({"bot": data["bot_message"]});
         });
       } else {
@@ -71,6 +76,8 @@ class _InterviewScreenState extends State<InterviewScreen> {
               "content": m.values.first,
             };
           }).toList(),
+          "currentQuestionIndex": currentQuestionIndex,
+          "jobQuestions": jobQuestions,
         }),
       );
 
@@ -79,18 +86,15 @@ class _InterviewScreenState extends State<InterviewScreen> {
 
         setState(() {
           messages.add({"bot": data["bot_message"]});
+          currentQuestionIndex =
+              data["currentQuestionIndex"] ?? currentQuestionIndex;
+          isChatEnding = data["is_chat_ending"] == true;
+
+          // If the chat has ended, show the end button
+          if (isChatEnding) {
+            showEndButton = true;
+          }
         });
-
-        if (data["is_chat_ending"] == true) {
-          setState(() {
-            isChatEnding = true;
-          });
-
-          // Redirect to previous page after a delay
-          Future.delayed(const Duration(seconds: 2), () {
-            Navigator.pop(context);
-          });
-        }
       }
     } catch (e) {
       setState(() {
@@ -154,42 +158,67 @@ class _InterviewScreenState extends State<InterviewScreen> {
                   },
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _messageController,
-                        enabled: !isChatEnding,
-                        decoration: InputDecoration(
-                          hintText: isChatEnding
-                              ? "The interview has ended."
-                              : "Type your message...",
-                          filled: true,
-                          fillColor: Colors.grey.shade100,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30),
+              if (showEndButton)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Column(
+                    children: [
+                      const Text(
+                        "The interview has concluded. Thank you for participating!",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        child: const Text("End"),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          enabled: !isChatEnding,
+                          decoration: InputDecoration(
+                            hintText: isChatEnding
+                                ? "The interview has ended."
+                                : "Type your message...",
+                            filled: true,
+                            fillColor: Colors.grey.shade100,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.send, color: Colors.deepPurple),
-                      onPressed: isChatEnding
-                          ? null
-                          : () {
-                              final userMessage =
-                                  _messageController.text.trim();
-                              if (userMessage.isNotEmpty) {
-                                _messageController.clear();
-                                _sendMessage(userMessage);
-                              }
-                            },
-                    ),
-                  ],
+                      IconButton(
+                        icon: const Icon(Icons.send, color: Colors.deepPurple),
+                        onPressed: isChatEnding
+                            ? null
+                            : () {
+                                final userMessage =
+                                    _messageController.text.trim();
+                                if (userMessage.isNotEmpty) {
+                                  _messageController.clear();
+                                  _sendMessage(userMessage);
+                                }
+                              },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ],

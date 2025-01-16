@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'interview_screen.dart';
 
 class JobsInterviewPage extends StatefulWidget {
   final String candidateID;
@@ -233,29 +234,6 @@ class JobInterviewCard extends StatelessWidget {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class InterviewScreen extends StatelessWidget {
-  final String candidateID;
-  final String invitationID;
-
-  const InterviewScreen(
-      {super.key, required this.candidateID, required this.invitationID});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Interview Screen'),
-      ),
-      body: Center(
-        child: Text(
-          'Candidate ID: $candidateID\nInvitation ID: $invitationID',
-          style: const TextStyle(fontSize: 18),
         ),
       ),
     );
