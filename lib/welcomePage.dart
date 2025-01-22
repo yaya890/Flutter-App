@@ -1,9 +1,42 @@
 import 'package:flutter/material.dart';
 import 'logInPage.dart'; // Import the LoginPage file
-import 'candidate_home_screen.dart';
 
 class WelcomePage extends StatelessWidget {
-  const WelcomePage({super.key});
+  WelcomePage({super.key});
+
+  /// Navigate to LoginPage with the selected role
+  Future<void> _navigateToLoginPage(BuildContext context, String role) async {
+    try {
+      // Navigate to the LoginPage and pass the role as an argument
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LogInPage(role: role),
+        ),
+      );
+    } catch (e) {
+      debugPrint('An error occurred while navigating: $e');
+      _showErrorDialog(
+          context, 'An error occurred while navigating to the login page.');
+    }
+  }
+
+  /// Show error dialog
+  void _showErrorDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,12 +54,6 @@ class WelcomePage extends StatelessWidget {
               ),
             ),
           ),
-          _animatedCircle(150, const Offset(-50, -50),
-              const Color(0xFFD1C4E9).withOpacity(0.2)),
-          _animatedCircle(250, const Offset(200, 400),
-              const Color(0xFF9575CD).withOpacity(0.3)),
-          _animatedCircle(100, const Offset(-80, 300),
-              const Color(0xFFF8BBD0).withOpacity(0.2)),
           Center(
             child: SingleChildScrollView(
               child: Padding(
@@ -56,32 +83,15 @@ class WelcomePage extends StatelessWidget {
                       title: "HR Managers",
                       description:
                           "Access HR tools integrated with AI for better management.",
-                      onTap: () {
-                        // Navigate to LogInPage
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const LogInPage(),
-                          ),
-                        );
-                      },
+                      onTap: () => _navigateToLoginPage(context, "HR Manager"),
                     ),
                     const SizedBox(height: 20),
                     _loginOption(
                       icon: Icons.person,
                       title: "Candidates",
                       description:
-                          "Access faster and more efficient hiring process .",
-                      onTap: () {
-                        // Navigate to LogInPage
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const CandidateHomeScreen(candidateID: 1),
-                          ),
-                        );
-                      },
+                          "Access faster and more efficient hiring process.",
+                      onTap: () => _navigateToLoginPage(context, "Candidate"),
                     ),
                   ],
                 ),
@@ -149,27 +159,6 @@ class WelcomePage extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _animatedCircle(double size, Offset offset, Color color) {
-    return TweenAnimationBuilder(
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: const Duration(seconds: 3),
-      curve: Curves.easeInOut,
-      builder: (context, value, child) {
-        return Transform.translate(
-          offset: Offset(offset.dx * value, offset.dy * value),
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
-            ),
-          ),
-        );
-      },
     );
   }
 }

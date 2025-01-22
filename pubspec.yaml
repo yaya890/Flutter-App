@@ -13,6 +13,11 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.2
+  dio: ^5.0.0
+  path_provider: ^2.0.13 # Use the latest version available
+  flutter_secure_storage: ^8.0.0
+  dio_cookie_manager: ^2.0.0
+  cookie_jar: ^3.0.1
   file_picker: ^8.1.7
   url_launcher: ^6.0.20
   cupertino_icons: ^1.0.8

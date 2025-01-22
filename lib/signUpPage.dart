@@ -39,9 +39,11 @@ class SignUpPage extends StatelessWidget {
                 ),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween, // Ensure even spacing
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween, // Ensure even spacing
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Name Input Field
@@ -190,15 +192,7 @@ class SignUpPage extends StatelessWidget {
             top: 40,
             left: 20,
             child: IconButton(
-              onPressed: () {
-                // Navigate back to LogInPage
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const LogInPage(),
-                  ),
-                );
-              },
+              onPressed: () {},
               icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
             ),
           ),

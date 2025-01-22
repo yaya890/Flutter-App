@@ -6,9 +6,9 @@ import 'jobs_interview_page.dart';
 import 'available_jobs.dart';
 
 class CandidateHomeScreen extends StatefulWidget {
-  final int candidateID; // Accept candidateID
+  final Map<String, dynamic> userData; // Accept userData as a parameter
 
-  const CandidateHomeScreen({super.key, required this.candidateID});
+  const CandidateHomeScreen({super.key, required this.userData});
 
   @override
   _CandidateHomeScreenState createState() => _CandidateHomeScreenState();
@@ -46,7 +46,9 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
     try {
       final response = await http.post(
         url,
-        body: json.encode({"candidateID": widget.candidateID}),
+        body: json.encode({
+          "candidateID": widget.userData['userID']
+        }), // Use candidateID from userData
         headers: {'Content-Type': 'application/json'},
       );
       if (response.statusCode == 200) {
@@ -65,7 +67,7 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Hello, John Doe"),
+        title: Text("Hello, ${widget.userData['name']}"), // Dynamic user name
         backgroundColor: Colors.purple,
         actions: [
           IconButton(
@@ -88,8 +90,8 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  CircleAvatar(
+                children: [
+                  const CircleAvatar(
                     radius: 30,
                     backgroundColor: Colors.white,
                     child: Icon(
@@ -98,18 +100,18 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
                       color: Colors.purple,
                     ),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
-                    "John Doe",
-                    style: TextStyle(
+                    widget.userData['name'], // Dynamic user name
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   Text(
-                    "john.doe@example.com",
-                    style: TextStyle(
+                    widget.userData['email'], // Dynamic user email
+                    style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
                     ),
@@ -143,7 +145,10 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => JobsInterviewPage(candidateID: '1'),
+                    builder: (context) => JobsInterviewPage(
+                      candidateID: widget
+                          .userData['userID'], // Use candidateID dynamically
+                    ),
                   ),
                 );
               },

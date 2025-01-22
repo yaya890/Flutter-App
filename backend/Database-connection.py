@@ -12,6 +12,7 @@ from sentence_transformers import SentenceTransformer, util
 from concurrent.futures import ThreadPoolExecutor
 import tempfile
 import re
+from MySQLdb.cursors import DictCursor  # Ensure DictCursor is imported
 
 import pdfplumber
 from flask import jsonify
@@ -26,6 +27,25 @@ import re
 from transformers import DistilBertTokenizer, DistilBertModel
 from sklearn.metrics.pairwise import cosine_similarity
 
+from flask import Flask, request, jsonify, session, make_response
+from flask_session import Session  # Import the Session class
+import secrets
+from datetime import timedelta
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+import datetime
+from flask_jwt_extended import JWTManager
+
+# Generate a key
+secret_key = secrets.token_hex(32)
+
+# Save it to a file
+with open('secret_key.txt', 'w') as f:
+    f.write(secret_key)
+
+    # Read the key from the file
+with open('secret_key.txt', 'r') as f:
+    secret_key = f.read().strip()
+
 
 #open ai key
 openai.api_key = "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"
@@ -34,16 +54,42 @@ openai.api_key = "sk-proj-EEyknVIOiUUSJIwVVNDuLjc2mLbm8hKAT03WF-LoanMX3Ut5KPLSOu
 # Initialize Flask app
 app = Flask(__name__)
 
-logging.basicConfig(level=logging.INFO)
+#get secret key - for sessions
+app.secret_key = secret_key
+
+logging.basicConfig(level=logging.DEBUG)
 
 # Enable CORS for all routes (adjust origins if needed)
-CORS(app, resources={r"/*": {"origins": "*"}})
+#CORS(app, resources={r"/*": {"origins": "*"}})
+
+
+# Enable CORS and allow credentials
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+
+# Configure session behavior
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SECURE'] = False  # True if using HTTPS
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=360)  # Session timeout
+
+# Import Flask-Session if needed (uncomment if using server-side sessions like Redis)
+# from flask_session import Session
+# Session(app)
+
 
 # Configure MySQL connection
-app.config['MYSQL_HOST'] = '168.149.62.176'  # Replace 'localhost' with your public IP address
+app.config['MYSQL_HOST'] = 'localhost'  # Replace 'localhost' with your public IP address
 app.config['MYSQL_USER'] = 'root'            # Your MySQL username
 app.config['MYSQL_PASSWORD'] = 'yara'        # Your MySQL password
 app.config['MYSQL_DB'] = 'ElpisHR'           # Your database name
+
+
+
+# Configure JWT
+app.config['JWT_SECRET_KEY'] = 'cad071e5f10059c4f2b1db3b78e97a3eaa5a9c7fbffbc40c1c4b80c328767513'  # Use a secure key
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(hours=1)  # Token expiration time
+jwt = JWTManager(app)
 
 
 # Configure file upload folder
@@ -54,6 +100,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 mysql = MySQL(app)
 
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
@@ -61,6 +108,104 @@ logging.basicConfig(level=logging.DEBUG)
 @app.route('/', methods=['GET'])
 def home():
     return "Hello, Flask is working!"
+
+
+#welcome page
+@app.route('/write_role', methods=['POST'])
+def write_role():
+    try:
+        # Get the role from the request body
+        data = request.json
+        role = data.get('role')
+
+        if not role:
+            return jsonify({"error": "Role is required"}), 400
+
+        # Path to the user_data.txt file
+        file_path = os.path.join('backend', 'uploads', 'user_data.txt')
+
+        # Write the role to the file
+        with open(file_path, 'w') as file:
+            file.write(f'role: {role}\n')
+
+        return jsonify({"message": "Role written successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+# Log in
+@app.route('/login', methods=['POST'])
+def login():
+    logging.debug("Login endpoint called")
+    cursor = None  # Initialize cursor
+
+    try:
+        # Extract email, password, and role from the request JSON
+        data = request.json
+        email = data.get('email')
+        password = data.get('password')
+        role = data.get('role')
+
+        logging.debug(f"Received login data: email={email}, password={'*' * len(password) if password else None}, role={role}")
+
+        # Validate input data
+        if not email or not password or not role:
+            logging.error("Missing email, password, or role")
+            return jsonify({"error": "Missing email, password, or role"}), 400
+
+        # Connect to the database
+        cursor = mysql.connection.cursor(DictCursor)  # Use DictCursor explicitly
+        logging.debug("Connected to the database")
+
+        # Query to validate user credentials
+        query = "SELECT userID, name, email, role FROM user WHERE email = %s AND password = %s AND role = %s"
+        logging.debug(f"Executing query with email={email}, role={role}")
+        cursor.execute(query, (email, password, role))
+        user = cursor.fetchone()
+
+        # Handle successful login
+        if user:
+            logging.info(f"User authenticated: {user}")
+
+            # Return user data along with the redirect target
+            redirect_to = "HRhomeScreen" if role == "HR Manager" else "CandidateHomeScreen"
+            return jsonify({
+                "message": "Login successful",
+                "redirect_to": redirect_to,
+                "user_data": {
+                    "userID": user['userID'],
+                    "name": user['name'],
+                    "email": user['email'],
+                    "role": user['role']
+                }
+            }), 200
+
+        # Handle failed login
+        logging.warning("Authentication failed. Checking for specific errors...")
+        cursor.execute("SELECT * FROM user WHERE email = %s", (email,))
+        email_check = cursor.fetchone()
+        if not email_check:
+            logging.error("Email does not exist")
+            return jsonify({"error": "Email not found"}), 401
+        elif email_check['password'] != password:
+            logging.error("Incorrect password")
+            return jsonify({"error": "Incorrect password"}), 401
+        elif email_check['role'] != role:
+            logging.error(f"Role mismatch: expected {role}, found {email_check['role']}")
+            return jsonify({"error": f"Role mismatch. You are not a {role}."}), 401
+
+    except Exception as e:
+        logging.exception("An error occurred during login")
+        return jsonify({"error": "An error occurred", "details": str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+            logging.debug("Database connection closed")
+
+
+
 
 
 # /add_job Endpoint

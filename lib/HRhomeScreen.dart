@@ -3,7 +3,10 @@ import 'jobPostings.dart'; // Import JobPostings page
 import 'interview_review_page.dart'; // Import InterviewReviewPage
 
 class HRhomeScreen extends StatelessWidget {
-  const HRhomeScreen({super.key});
+  final Map<String, dynamic> userData;
+
+  // Constructor to accept user data
+  const HRhomeScreen({super.key, required this.userData});
 
   @override
   Widget build(BuildContext context) {
@@ -32,12 +35,14 @@ class HRhomeScreen extends StatelessWidget {
             icon: const Icon(Icons.person, color: Colors.black),
             onPressed: () {
               // Profile functionality placeholder
+              debugPrint("User Data: $userData"); // For debugging purposes
             },
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.black),
             onPressed: () {
               // Log-out functionality placeholder
+              Navigator.pop(context);
             },
           ),
         ],
@@ -50,7 +55,8 @@ class HRhomeScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Color.fromARGB(255, 125, 25, 155),
               ),
-              child: Center( // Centers the text
+              child: Center(
+                // Centers the text
                 child: const Text(
                   'Menu',
                   style: TextStyle(
@@ -72,12 +78,14 @@ class HRhomeScreen extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.interpreter_mode, color: Color(0xFF4A148C)),
+              leading:
+                  const Icon(Icons.interpreter_mode, color: Color(0xFF4A148C)),
               title: const Text('Interviews Management'),
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => InterviewReviewPage()),
+                  MaterialPageRoute(
+                      builder: (context) => InterviewReviewPage()),
                 );
               },
             ),
@@ -101,14 +109,14 @@ class HRhomeScreen extends StatelessWidget {
                   const SizedBox(width: 10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
+                    children: [
+                      const Text(
                         'Hello,',
                         style: TextStyle(fontSize: 18, color: Colors.black54),
                       ),
                       Text(
-                        'Name: ', // Placeholder for name
-                        style: TextStyle(
+                        'Name: ${userData['name']}', // Dynamically display the name
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF4A148C),
@@ -264,7 +272,8 @@ class HRhomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Interview Title: ', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text('Interview Title: ',
+              style: TextStyle(fontWeight: FontWeight.bold)),
           const Text('Candidate Name: '),
           const Text('Interview Status: '),
           const Text('Outcome: '),
@@ -332,4 +341,3 @@ class HRhomeScreen extends StatelessWidget {
     );
   }
 }
-
