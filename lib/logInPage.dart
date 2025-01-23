@@ -1,14 +1,15 @@
+// logInPage.dart
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
-
-import 'forgotPassword.dart';
-import 'signUpPage.dart';
-import 'HRhomeScreen.dart'; // Import HR Home Screen
-import 'candidate_home_screen.dart'; // Import Candidate Home Screen
-import 'welcomePage.dart'; // Import the WelcomePage
+import 'dart:convert'; // For JSON encoding/decoding
+import 'package:http/http.dart' as http; // For making HTTP requests
+import 'HRhomeScreen.dart';
+import 'candidate_home_screen.dart';
+import 'welcomePage.dart';
+import 'signUpPage.dart'; // Import the signup page
+import 'forgotPassword.dart'; // Import the forgot password page
 
 class LogInPage extends StatefulWidget {
-  final String role; // Role passed from the WelcomePage
+  final String role;
 
   const LogInPage({super.key, required this.role});
 
@@ -19,79 +20,69 @@ class LogInPage extends StatefulWidget {
 class _LogInPageState extends State<LogInPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false; // For showing a loading spinner
 
-  // Initialize Dio instance
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: 'http://127.0.0.1:39542',
-    headers: {'Content-Type': 'application/json'},
-  ));
+  // Base URL of the backend API
+  final String _baseUrl = 'http://127.0.0.1:39542';
 
   // Function to handle login
   Future<void> _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    // Validate fields
     if (email.isEmpty || password.isEmpty) {
       _showErrorDialog('Please fill in both email and password.');
       return;
     }
 
+    setState(() {
+      _isLoading = true; // Show loading spinner
+    });
+
     try {
-      // Send login request with email, password, and role
-      final response = await _dio.post(
-        '/login',
-        data: {
+      // Send HTTP POST request to the /login endpoint
+      final response = await http.post(
+        Uri.parse('$_baseUrl/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
           'email': email,
           'password': password,
-          'role': widget.role, // Include the role passed from WelcomePage
-        },
+          'role': widget.role,
+        }),
       );
 
+      // Handle response
       if (response.statusCode == 200) {
-        final data = response.data;
+        final userData = jsonDecode(response.body);
 
-        // Check if the user was found and navigate to the appropriate home screen
-        if (data['role'].toLowerCase() == 'hr manager') {
+        // Navigate based on role
+        if (widget.role.toLowerCase() == 'hrmanager') {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => HRhomeScreen(
-                userData: {
-                  'userID': data['userID'],
-                  'name': data['name'],
-                  'email': data['email'],
-                  'role': data['role'],
-                },
-              ),
+              builder: (context) => HRhomeScreen(userData: userData),
             ),
           );
-        } else if (data['role'].toLowerCase() == 'candidate') {
+        } else if (widget.role.toLowerCase() == 'candidate') {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => CandidateHomeScreen(
-                userData: {
-                  'userID': data['userID'],
-                  'name': data['name'],
-                  'email': data['email'],
-                  'role': data['role'],
-                },
-              ),
+              builder: (context) => CandidateHomeScreen(userData: userData),
             ),
           );
         } else {
           _showErrorDialog('Unknown role. Please contact support.');
         }
       } else {
-        // Handle server error
-        final error = response.data['error'] ?? 'Login failed';
-        _showErrorDialog(error);
+        final errorResponse = jsonDecode(response.body);
+        _showErrorDialog(errorResponse['error'] ?? 'Invalid credentials.');
       }
     } catch (e) {
-      // Handle any exceptions
-      debugPrint('An error occurred during login: $e');
-      _showErrorDialog('An error occurred. Please try again later.');
+      _showErrorDialog('An error occurred: ${e.toString()}');
+    } finally {
+      setState(() {
+        _isLoading = false; // Hide loading spinner
+      });
     }
   }
 
@@ -140,7 +131,6 @@ class _LogInPageState extends State<LogInPage> {
                     alignment: Alignment.topLeft,
                     child: IconButton(
                       onPressed: () {
-                        // Navigate back to WelcomePage
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -282,25 +272,29 @@ class _LogInPageState extends State<LogInPage> {
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: ElevatedButton(
-                                    onPressed: _login,
+                                    onPressed: _isLoading ? null : _login,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.transparent,
                                       shadowColor: Colors.transparent,
                                       elevation: 0,
                                     ),
-                                    child: const Text(
-                                      'Log in',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                    child: _isLoading
+                                        ? const CircularProgressIndicator(
+                                            color: Colors.white,
+                                          )
+                                        : const Text(
+                                            'Log in',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
                                   ),
                                 ),
                                 const SizedBox(height: 20),
 
-                                // Forgot Password and Signup Links
+                                // Links: Signup and Forgot Password
                                 Center(
                                   child: Column(
                                     children: [
@@ -310,15 +304,14 @@ class _LogInPageState extends State<LogInPage> {
                                             context,
                                             MaterialPageRoute(
                                               builder: (context) =>
-                                                  const ForgotPasswordPage(),
+                                                  SignUpPage(role: widget.role),
                                             ),
                                           );
                                         },
                                         child: const Text(
-                                          'Forgot Password?',
+                                          'Don’t have an account? Sign up',
                                           style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.black54,
+                                            color: Colors.blue,
                                             decoration:
                                                 TextDecoration.underline,
                                           ),
@@ -327,20 +320,18 @@ class _LogInPageState extends State<LogInPage> {
                                       const SizedBox(height: 10),
                                       GestureDetector(
                                         onTap: () {
-                                          // Navigate to SignUpPage
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
                                               builder: (context) =>
-                                                  const SignUpPage(),
+                                                  ForgotPasswordPage(),
                                             ),
                                           );
                                         },
                                         child: const Text(
-                                          'Signup!',
+                                          'Forgot your password?',
                                           style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.black54,
+                                            color: Colors.blue,
                                             decoration:
                                                 TextDecoration.underline,
                                           ),

@@ -1,3 +1,4 @@
+// welcomePage.dart
 import 'package:flutter/material.dart';
 import 'logInPage.dart'; // Import the LoginPage file
 
@@ -83,7 +84,7 @@ class WelcomePage extends StatelessWidget {
                       title: "HR Managers",
                       description:
                           "Access HR tools integrated with AI for better management.",
-                      onTap: () => _navigateToLoginPage(context, "HR Manager"),
+                      onTap: () => _navigateToLoginPage(context, "hrmanager"),
                     ),
                     const SizedBox(height: 20),
                     _loginOption(
@@ -91,7 +92,7 @@ class WelcomePage extends StatelessWidget {
                       title: "Candidates",
                       description:
                           "Access faster and more efficient hiring process.",
-                      onTap: () => _navigateToLoginPage(context, "Candidate"),
+                      onTap: () => _navigateToLoginPage(context, "candidate"),
                     ),
                   ],
                 ),

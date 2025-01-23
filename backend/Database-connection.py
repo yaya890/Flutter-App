@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request, url_for, send_file
 from flask_mysqldb import MySQL
 from flask_cors import CORS
+
 import os
 import logging
 from werkzeug.utils import secure_filename
@@ -35,6 +36,53 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 import datetime
 from flask_jwt_extended import JWTManager
 
+
+
+import random
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+
+import bcrypt
+
+from flask_bcrypt import Bcrypt
+
+
+from supabase import create_client, Client
+
+
+SUPABASE_URL = "https://gxfktitynhoajtnnflkr.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4Zmt0aXR5bmhvYWp0bm5mbGtyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNzU0ODM5MywiZXhwIjoyMDUzMTI0MzkzfQ.CBtp1NriHxr2QgPZOrRtIj1_VULhkX1L7wgDSKGHMxw"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+try:
+    # Test query: Fetch the first row from the 'user' table
+    response = supabase.table('user').select("*").limit(1).execute()
+
+    if response.data:
+        print("Connection successful! Data:", response.data)
+    else:
+        print("Connection successful, but no data found in 'user' table.")
+except Exception as e:
+    print("Error connecting to Supabase:", e)
+
+
+# SMTP Configuration (use your email service provider's SMTP details)
+SMTP_SERVER = 'smtp.gmail.com'  # Replace with your SMTP server
+SMTP_PORT = 587
+EMAIL_ADDRESS = 'ElipsHR1@gmail.com'  # Replace with your email address
+EMAIL_PASSWORD = 'dzxe edup suqd wrrt'  # Replace with your email password
+
+# In-memory storage for demo purposes
+verification_codes = {}
+
+
+
+
+
+
 # Generate a key
 secret_key = secrets.token_hex(32)
 
@@ -53,6 +101,18 @@ openai.api_key = "sk-proj-EEyknVIOiUUSJIwVVNDuLjc2mLbm8hKAT03WF-LoanMX3Ut5KPLSOu
 
 # Initialize Flask app
 app = Flask(__name__)
+bcrypt = Bcrypt(app) 
+# Hash a password
+password = "mySecurePassword"
+hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+
+print("Hashed Password:", hashed_password)
+
+# Verify the password
+if bcrypt.check_password_hash(hashed_password, "mySecurePassword"):
+    print("Password is correct!")
+else:
+    print("Invalid password.")
 
 #get secret key - for sessions
 app.secret_key = secret_key
@@ -94,7 +154,7 @@ jwt = JWTManager(app)
 
 # Configure file upload folder
 UPLOAD_FOLDER = 'uploads'
-BASE_URL = "http://127.0.0.1:39542/" 
+BASE_URL = "http://127.0.0.1:39542/"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -108,6 +168,131 @@ logging.basicConfig(level=logging.DEBUG)
 @app.route('/', methods=['GET'])
 def home():
     return "Hello, Flask is working!"
+
+
+
+
+@app.route('/signup', methods=['POST'])
+def signup():
+    try:
+        # Parse the JSON request
+        data = request.get_json()
+        name = data.get('name')
+        email = data.get('email')
+        password = data.get('password')
+        role = data.get('role')
+
+        # Validate input
+        if not name or not email or not password or not role:
+            return jsonify({'error': 'All fields are required.'}), 400
+
+        # Generate a 4-digit verification code
+        verification_code = str(random.randint(1000, 9999))
+
+        # Send the verification code via email
+        if not send_verification_email(email, verification_code):
+            return jsonify({'error': 'Failed to send verification email.'}), 500
+
+        # Store the verification code (this should be replaced with database storage in production)
+        verification_codes[email] = verification_code
+
+        # Respond with success and return the verification code for demonstration purposes
+        return jsonify({
+            'message': 'Sign-up successful. Verification code sent to email.',
+            'verification_code': verification_code
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def send_verification_email(to_email, code):
+    try:
+        # Create the email content
+        subject = "Your Verification Code"
+        body = f"Your verification code is: {code}"
+
+        # Set up the email
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_ADDRESS
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+
+        # Connect to the SMTP server and send the email
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+
+        return True
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return False
+
+
+# verfication
+@app.route('/verify', methods=['POST'])
+def verify():
+    try:
+        # Parse the JSON request
+        data = request.get_json()
+        email = data.get('email')
+        code = data.get('code')
+
+        # Validate input
+        if not email or not code:
+            return jsonify({'error': 'Email and code are required.'}), 400
+
+        # Check if the email exists in the stored verification codes
+        if email not in verification_codes:
+            return jsonify({'error': 'Verification code not found for this email.'}), 404
+
+        # Check if the code matches
+        if verification_codes[email] == code:
+            del verification_codes[email]  # Delete the code after successful verification
+            return jsonify({'message': 'Verification successful.'}), 200
+        else:
+            return jsonify({'error': 'Invalid verification code.'}), 400
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+#Store new user 
+@app.route('/store_new_user', methods=['POST'])
+def store_new_user():
+    try:
+        # Parse the JSON request
+        data = request.get_json()
+        name = data.get('name')
+        email = data.get('email')
+        password = data.get('password')
+        role = data.get('role')
+
+        # Validate input
+        if not name or not email or not password or not role:
+            return jsonify({'error': 'All fields are required.'}), 400
+
+        # Hash the password
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+        # Insert user into the Supabase database
+        response = supabase.table('user').insert({
+            'name': name,
+            'email': email,
+            'password': hashed_password.decode('utf-8'),  # Decode to store as a string
+            'role': role
+        }).execute()
+
+        # Check response status
+        if response.status_code == 201:
+            return jsonify({'message': 'User stored successfully.'}), 201
+        else:
+            return jsonify({'error': 'Failed to store user.'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 #welcome page
@@ -134,75 +319,41 @@ def write_role():
 
 
 
-# Log in
 @app.route('/login', methods=['POST'])
 def login():
-    logging.debug("Login endpoint called")
-    cursor = None  # Initialize cursor
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+    role = data.get('role')  # Role passed from the Flutter app
 
-    try:
-        # Extract email, password, and role from the request JSON
-        data = request.json
-        email = data.get('email')
-        password = data.get('password')
-        role = data.get('role')
+    # Check for missing fields
+    if not email or not password or not role:
+        return jsonify({"error": "Missing fields"}), 400
 
-        logging.debug(f"Received login data: email={email}, password={'*' * len(password) if password else None}, role={role}")
+    # Query Supabase for user
+    response = supabase.table('user').select("*").eq('email', email).execute()
+    user = response.data
 
-        # Validate input data
-        if not email or not password or not role:
-            logging.error("Missing email, password, or role")
-            return jsonify({"error": "Missing email, password, or role"}), 400
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-        # Connect to the database
-        cursor = mysql.connection.cursor(DictCursor)  # Use DictCursor explicitly
-        logging.debug("Connected to the database")
+    user = user[0]  # Get the first user (assuming email is unique)
 
-        # Query to validate user credentials
-        query = "SELECT userID, name, email, role FROM user WHERE email = %s AND password = %s AND role = %s"
-        logging.debug(f"Executing query with email={email}, role={role}")
-        cursor.execute(query, (email, password, role))
-        user = cursor.fetchone()
+    # Verify password
+    if not bcrypt.check_password_hash(user['password'], password):  # Ensure passwords are hashed in Supabase
+        return jsonify({"error": "Invalid password"}), 401
 
-        # Handle successful login
-        if user:
-            logging.info(f"User authenticated: {user}")
+    # Verify role
+    if user['role'].lower() != role.lower():
+        return jsonify({"error": "Role mismatch"}), 403
 
-            # Return user data along with the redirect target
-            redirect_to = "HRhomeScreen" if role == "HR Manager" else "CandidateHomeScreen"
-            return jsonify({
-                "message": "Login successful",
-                "redirect_to": redirect_to,
-                "user_data": {
-                    "userID": user['userID'],
-                    "name": user['name'],
-                    "email": user['email'],
-                    "role": user['role']
-                }
-            }), 200
+    # Return user data
+    return jsonify({
+        "name": user['name'],
+        "email": user['email'],
+        "role": user['role'],
+    }), 200
 
-        # Handle failed login
-        logging.warning("Authentication failed. Checking for specific errors...")
-        cursor.execute("SELECT * FROM user WHERE email = %s", (email,))
-        email_check = cursor.fetchone()
-        if not email_check:
-            logging.error("Email does not exist")
-            return jsonify({"error": "Email not found"}), 401
-        elif email_check['password'] != password:
-            logging.error("Incorrect password")
-            return jsonify({"error": "Incorrect password"}), 401
-        elif email_check['role'] != role:
-            logging.error(f"Role mismatch: expected {role}, found {email_check['role']}")
-            return jsonify({"error": f"Role mismatch. You are not a {role}."}), 401
-
-    except Exception as e:
-        logging.exception("An error occurred during login")
-        return jsonify({"error": "An error occurred", "details": str(e)}), 500
-
-    finally:
-        if cursor:
-            cursor.close()
-            logging.debug("Database connection closed")
 
 
 
@@ -946,35 +1097,37 @@ def get_top_candidates():
 #get jobs for home page
 @app.route('/get_filtered_jobs', methods=['GET'])
 def get_filtered_jobs():
-    try:
-        cursor = mysql.connection.cursor()
-        cursor.execute("""
-            SELECT jobID, title, department, requiredSkills, experienceYears, education, description
-            FROM Job
-            WHERE status = 'open'
-        """)
-        jobs = cursor.fetchall()
-        cursor.close()
+    # Query jobs with status 'open' from the 'job' table in Supabase
+    response = supabase.table('job').select(
+        'job_id', 'title', 'department', 'required_skills', 'experience_years', 'education', 'description'
+    ).eq('status', 'open').execute()
 
-        # Convert results to a list of dictionaries
+    # Get the jobs data
+    jobs = response.data
+
+    # If jobs are found, map and return them
+    if jobs:
         result = [
             {
-                "jobID": job[0],
-                "title": job[1],
-                "department": job[2],
-                "requiredSkills": job[3],
-                "experienceYears": job[4],
-                "education": job[5],
-                "description": job[6]
+                "jobID": job['job_id'],
+                "title": job['title'],
+                "department": job['department'],
+                "requiredSkills": job['required_skills'],
+                "experienceYears": job['experience_years'],
+                "education": job['education'],
+                "description": job['description']
             }
             for job in jobs
         ]
-
-        logging.info("Filtered jobs retrieved successfully.")
         return jsonify(result), 200
-    except Exception as e:
-        logging.error(f"Error retrieving filtered jobs: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    else:
+        # If no jobs are found, return a "no jobs available" message
+        return jsonify({"message": "No jobs available."}), 404
+
+
+
+
+
 
 
 

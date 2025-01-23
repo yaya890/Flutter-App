@@ -1,7 +1,116 @@
-import 'package:flutter/material.dart';
+// verificationPage.dart
 
-class VerificationPage extends StatelessWidget {
-  const VerificationPage({super.key});
+import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+class VerificationPage extends StatefulWidget {
+  final String role;
+  final String email;
+  final Map<String, dynamic> userData; // Includes all user data
+
+  const VerificationPage({
+    super.key,
+    required this.role,
+    required this.email,
+    required this.userData,
+  });
+
+  @override
+  State<VerificationPage> createState() => _VerificationPageState();
+}
+
+class _VerificationPageState extends State<VerificationPage> {
+  final List<TextEditingController> _otpControllers =
+      List.generate(4, (_) => TextEditingController());
+  bool _isLoading = false;
+
+  final String _baseUrl = 'http://127.0.0.1:39542'; // Base URL of the API
+
+  // Function to verify the code
+  Future<void> _verifyCode() async {
+    final code = _otpControllers.map((controller) => controller.text).join();
+
+    if (code.length != 4) {
+      _showDialog('Error', 'Please enter the 4-digit code.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/verify'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': widget.email,
+          'code': code,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        _showDialog(
+            'Verification Successful', 'Go to login to enter your account.');
+        await _storeNewUser(); // Call to store the new user
+      } else {
+        final errorMessage = jsonDecode(response.body)['error'];
+        _showDialog('Error', errorMessage);
+      }
+    } catch (e) {
+      _showDialog('Error', 'An error occurred: ${e.toString()}');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Function to store new user
+  Future<void> _storeNewUser() async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/store_new_user'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'name': widget.userData['name'], // Ensure name is present
+          'email': widget.userData['email'], // Ensure email is present
+          'password': widget.userData['password'], // Ensure password is present
+          'role': widget.role, // Ensure role is included
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        print('User stored successfully');
+      } else if (response.statusCode == 400) {
+        final errorMessage = jsonDecode(response.body)['error'];
+        print('Validation Error: $errorMessage');
+      } else {
+        final errorMessage = jsonDecode(response.body)['error'];
+        print('Error storing user: $errorMessage');
+      }
+    } catch (e) {
+      print('Error: ${e.toString()}');
+    }
+  }
+
+  // Helper function to show dialogs
+  void _showDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,12 +178,9 @@ class VerificationPage extends StatelessWidget {
                         // OTP Fields
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _otpTextField(),
-                            _otpTextField(),
-                            _otpTextField(),
-                            _otpTextField(),
-                          ],
+                          children: _otpControllers.map((controller) {
+                            return _otpTextField(controller);
+                          }).toList(),
                         ),
                         const SizedBox(height: 30),
 
@@ -92,17 +198,19 @@ class VerificationPage extends StatelessWidget {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: TextButton(
-                            onPressed: () {
-                              // Add your verification logic here
-                            },
-                            child: const Text(
-                              'Verify',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            onPressed: _isLoading ? null : _verifyCode,
+                            child: _isLoading
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white,
+                                  )
+                                : const Text(
+                                    'Verify',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
@@ -117,10 +225,11 @@ class VerificationPage extends StatelessWidget {
     );
   }
 
-  Widget _otpTextField() {
+  Widget _otpTextField(TextEditingController controller) {
     return SizedBox(
       width: 50,
       child: TextField(
+        controller: controller,
         textAlign: TextAlign.center,
         maxLength: 1,
         keyboardType: TextInputType.number,

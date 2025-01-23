@@ -24,6 +24,9 @@ dependencies:
   webview_flutter: ^4.2.3
   flutter_pdfview: ^1.0.7
 
+  supabase_flutter: ^1.5.0
+
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
