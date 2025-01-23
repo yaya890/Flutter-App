@@ -1,11 +1,105 @@
+// logInPage.dart
 import 'package:flutter/material.dart';
-import 'forgotPassword.dart';
-import 'signUpPage.dart';
-import 'welcomePage.dart'; // Import the WelcomePage
-import 'HRhomeScreen.dart'; // Import the HRhomeScreen
+import 'dart:convert'; // For JSON encoding/decoding
+import 'package:http/http.dart' as http; // For making HTTP requests
+import 'HRhomeScreen.dart';
+import 'candidate_home_screen.dart';
+import 'welcomePage.dart';
 
-class LogInPage extends StatelessWidget {
-  const LogInPage({super.key});
+class LogInPage extends StatefulWidget {
+  final String role;
+
+  const LogInPage({super.key, required this.role});
+
+  @override
+  State<LogInPage> createState() => _LogInPageState();
+}
+
+class _LogInPageState extends State<LogInPage> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false; // For showing a loading spinner
+
+  // Base URL of the backend API
+  final String _baseUrl = 'http://127.0.0.1:39542/';
+
+  // Function to handle login
+  Future<void> _login() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      _showErrorDialog('Please fill in both email and password.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true; // Show loading spinner
+    });
+
+    try {
+      // Send HTTP POST request to the /login endpoint
+      final response = await http.post(
+        Uri.parse('$_baseUrl/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+          'role': widget.role,
+        }),
+      );
+
+      // Handle response
+      if (response.statusCode == 200) {
+        final userData = jsonDecode(response.body);
+
+        // Navigate based on role
+        if (widget.role.toLowerCase() == 'hr manager') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => HRhomeScreen(userData: userData),
+            ),
+          );
+        } else if (widget.role.toLowerCase() == 'candidate') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CandidateHomeScreen(userData: userData),
+            ),
+          );
+        } else {
+          _showErrorDialog('Unknown role. Please contact support.');
+        }
+      } else {
+        final errorResponse = jsonDecode(response.body);
+        _showErrorDialog(errorResponse['error'] ?? 'Invalid credentials.');
+      }
+    } catch (e) {
+      _showErrorDialog('An error occurred: ${e.toString()}');
+    } finally {
+      setState(() {
+        _isLoading = false; // Hide loading spinner
+      });
+    }
+  }
+
+  // Function to show error dialog
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +110,10 @@ class LogInPage extends StatelessWidget {
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF7A1EA1), Color(0xFF4A148C)], // Purple gradient
+                colors: [
+                  Color(0xFF7A1EA1),
+                  Color(0xFF4A148C),
+                ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -32,15 +129,18 @@ class LogInPage extends StatelessWidget {
                     alignment: Alignment.topLeft,
                     child: IconButton(
                       onPressed: () {
-                        // Navigate back to WelcomePage
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const WelcomePage(),
+                            builder: (context) => WelcomePage(),
                           ),
                         );
                       },
-                      icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: Colors.white,
+                        size: 30,
+                      ),
                     ),
                   ),
                 ),
@@ -97,9 +197,12 @@ class LogInPage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 5),
                                 TextField(
+                                  controller: _emailController,
                                   decoration: InputDecoration(
                                     hintText: 'example@example.com',
-                                    hintStyle: const TextStyle(color: Colors.black45),
+                                    hintStyle: const TextStyle(
+                                      color: Colors.black45,
+                                    ),
                                     filled: true,
                                     fillColor: Colors.grey.shade200,
                                     enabledBorder: OutlineInputBorder(
@@ -129,10 +232,13 @@ class LogInPage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 5),
                                 TextField(
+                                  controller: _passwordController,
                                   obscureText: true,
                                   decoration: InputDecoration(
                                     hintText: '******',
-                                    hintStyle: const TextStyle(color: Colors.black45),
+                                    hintStyle: const TextStyle(
+                                      color: Colors.black45,
+                                    ),
                                     filled: true,
                                     fillColor: Colors.grey.shade200,
                                     enabledBorder: OutlineInputBorder(
@@ -156,82 +262,32 @@ class LogInPage extends StatelessWidget {
                                   height: 50,
                                   decoration: BoxDecoration(
                                     gradient: const LinearGradient(
-                                      colors: [Color(0xFF7A1EA1), Color(0xFF4A148C)],
+                                      colors: [
+                                        Color(0xFF7A1EA1),
+                                        Color(0xFF4A148C),
+                                      ],
                                     ),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: ElevatedButton(
-                                    onPressed: () {
-                                      // Navigate to HRhomeScreen
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const HRhomeScreen(),
-                                        ),
-                                      );
-                                    },
+                                    onPressed: _isLoading ? null : _login,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.transparent,
                                       shadowColor: Colors.transparent,
                                       elevation: 0,
                                     ),
-                                    child: const Text(
-                                      'Log in',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-
-                                // Forgot Password and Signup Links
-                                Center(
-                                  child: Column(
-                                    children: [
-                                      GestureDetector(
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  const ForgotPasswordPage(),
+                                    child: _isLoading
+                                        ? const CircularProgressIndicator(
+                                            color: Colors.white,
+                                          )
+                                        : const Text(
+                                            'Log in',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                          );
-                                        },
-                                        child: const Text(
-                                          'Forgot Password?',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.black54,
-                                            decoration: TextDecoration.underline,
                                           ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      GestureDetector(
-                                        onTap: () {
-                                          // Navigate to SignUpPage
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  const SignUpPage(),
-                                            ),
-                                          );
-                                        },
-                                        child: const Text(
-                                          'Signup!',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.black54,
-                                            decoration: TextDecoration.underline,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
                                   ),
                                 ),
                               ],

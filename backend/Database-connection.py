@@ -39,6 +39,12 @@ from flask_jwt_extended import JWTManager
 
 from supabase import create_client, Client
 
+# Supabase configuration
+SUPABASE_URL = "https://gxfktitynhoajtnnflkr.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4Zmt0aXR5bmhvYWp0bm5mbGtyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNzU0ODM5MywiZXhwIjoyMDUzMTI0MzkzfQ.CBtp1NriHxr2QgPZOrRtIj1_VULhkX1L7wgDSKGHMxw"
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 
 
 # Generate a key
