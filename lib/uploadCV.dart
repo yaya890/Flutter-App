@@ -1,13 +1,22 @@
+// uploadCV.dart
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'available_jobs.dart';
 
-class UploadCVPage extends StatelessWidget {
+class UploadCVPage extends StatefulWidget {
+  UploadCVPage({super.key, required this.jobID, required this.userData});
+
   final int jobID;
-  String? uploadedFilePath;
+  final Map<String, dynamic> userData;
 
-  UploadCVPage({super.key, required this.jobID});
+  @override
+  _UploadCVPageState createState() => _UploadCVPageState();
+}
+
+class _UploadCVPageState extends State<UploadCVPage> {
+  String? uploadedFilePath;
 
   Future<void> _uploadCV(BuildContext context) async {
     try {
@@ -30,7 +39,7 @@ class UploadCVPage extends StatelessWidget {
           'POST',
           Uri.parse('http://127.0.0.1:39542/upload_cv'),
         );
-        request.fields['jobID'] = jobID.toString();
+        request.fields['jobID'] = widget.jobID.toString();
 
         if (result.files.single.bytes != null) {
           request.files.add(
@@ -91,11 +100,14 @@ class UploadCVPage extends StatelessWidget {
     }
 
     try {
+      var email = widget.userData['email'];
+
       var response = await http.post(
         Uri.parse('http://127.0.0.1:39542/save_application'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "jobID": jobID,
+          "jobID": widget.jobID,
+          "email": email,
           "filePath": uploadedFilePath,
         }),
       );
@@ -104,10 +116,19 @@ class UploadCVPage extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Application submitted successfully")),
         );
+
+        // Navigate back to the AvailableJobs page
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+              builder: (context) => AvailableJobs(
+                    userData: widget.userData, // Pass userData
+                  )),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text("Failed to submit application: ${response.body}")),
+            content: Text("Failed to submit application: ${response.body}"),
+          ),
         );
       }
     } catch (e) {
@@ -120,7 +141,7 @@ class UploadCVPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF6A1B9A), // Purple background
+      backgroundColor: const Color(0xFF6A1B9A),
       body: SafeArea(
         child: Stack(
           children: [

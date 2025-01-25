@@ -1,13 +1,14 @@
+// interview_screen.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class InterviewScreen extends StatefulWidget {
-  final String candidateID;
+  final Map<String, dynamic> userData; // Accept userData as a parameter
   final String invitationID;
 
   const InterviewScreen(
-      {super.key, required this.candidateID, required this.invitationID});
+      {super.key, required this.userData, required this.invitationID});
 
   @override
   State<InterviewScreen> createState() => _InterviewScreenState();

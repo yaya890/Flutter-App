@@ -1,17 +1,30 @@
+// available_jobs.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'uploadCV.dart'; // Import the UploadCVPage file
+import 'candidate_home_screen.dart';
 
 class AvailableJobs extends StatefulWidget {
-  const AvailableJobs({super.key});
+  const AvailableJobs({super.key, required this.userData});
+
+  final Map<String, dynamic> userData; // Accept userData as a parameter
 
   @override
   _AvailableJobsState createState() => _AvailableJobsState();
 }
 
 class _AvailableJobsState extends State<AvailableJobs> {
+  List<dynamic> _filteredJobs = [];
   late Future<List<dynamic>> _jobs;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -21,7 +34,7 @@ class _AvailableJobsState extends State<AvailableJobs> {
 
   // Function to fetch jobs from the database
   Future<List<dynamic>> fetchJobs() async {
-    final url = Uri.parse("http://127.0.0.1:39542/get_open_jobs");
+    final url = Uri.parse("http://127.0.0.1:39542/get_filtered_jobs");
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
@@ -31,122 +44,39 @@ class _AvailableJobsState extends State<AvailableJobs> {
     }
   }
 
-  // Function to fetch job details by jobID
-  Future<Map<String, dynamic>> fetchJobDetails(int jobID) async {
-    final url = Uri.parse("http://127.0.0.1:39542/get_job_details/$jobID");
-    final response = await http.get(url);
-
-    if (response.statusCode == 200) {
-      final job = jsonDecode(response.body);
-      print("Fetched Job Details: $job"); // Debugging print statement
-      return job;
-    } else {
-      throw Exception('Failed to load job details');
-    }
-  }
-
   // Function to display job details in a dialog
-  void _showJobDetails(BuildContext context, int jobID) async {
-    try {
-      final job = await fetchJobDetails(jobID);
-      showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: Text(job['title'] ?? 'Not Available'),
-            content: Column(
+  void _showJobDetails(BuildContext context, Map<String, dynamic> job) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(job['title'] ?? 'Not Available'),
+          content: SingleChildScrollView(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Department: ${job['department'] ?? 'Not Available'}"),
                 const SizedBox(height: 8),
-                Text("Description: ${job['description'] ?? 'Not Available'}"),
+                Text(
+                    "Required Skills: ${job['requiredSkills'] ?? 'Not Available'}"),
                 const SizedBox(height: 8),
-                Text("Requirements: ${job['requirements'] ?? 'Not Available'}"),
+                Text("Experience: ${job['experienceYears']} years"),
+                const SizedBox(height: 8),
+                Text("Education: ${job['education'] ?? 'Not Available'}"),
+                const SizedBox(height: 8),
+                Text("Description: ${job['description'] ?? 'Not Available'}"),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Close"),
-              ),
-            ],
-          );
-        },
-      );
-    } catch (error) {
-      print("Error Fetching Job Details: $error"); // Debugging print statement
-      showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text("Error"),
-            content: Text("Failed to load job details: $error"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Close"),
-              ),
-            ],
-          );
-        },
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: const Icon(Icons.menu),
-        actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.share),
           ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.search),
-          ),
-        ],
-        title: const Text("Available Jobs"),
-        backgroundColor: Colors.purple,
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.purple, Colors.purpleAccent],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: FutureBuilder<List<dynamic>>(
-          future: _jobs,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Center(child: Text('No open jobs available.'));
-            }
-
-            final jobs = snapshot.data!;
-            return ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: jobs.length,
-              itemBuilder: (context, index) {
-                final job = jobs[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: _buildJobCard(job, context),
-                );
-              },
-            );
-          },
-        ),
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close"),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -188,12 +118,13 @@ class _AvailableJobsState extends State<AvailableJobs> {
               Flexible(
                 child: ElevatedButton(
                   onPressed: () {
-                    // Navigate to UploadCVPage with the JobID
+                    // Pass both userData and jobID to UploadCVPage
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => UploadCVPage(
-                          jobID: job['jobID'], // Pass JobID to UploadCVPage
+                          userData: widget.userData, // Pass userData
+                          jobID: job['jobID'], // Pass jobID
                         ),
                       ),
                     );
@@ -208,9 +139,7 @@ class _AvailableJobsState extends State<AvailableJobs> {
               Flexible(
                 child: TextButton(
                   onPressed: () {
-                    print(
-                        "JobID for Details: ${job['jobID']}"); // Debugging print statement
-                    _showJobDetails(context, job['jobID']);
+                    _showJobDetails(context, job);
                   },
                   child: const Text("View Details"),
                 ),
@@ -218,6 +147,101 @@ class _AvailableJobsState extends State<AvailableJobs> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CandidateHomeScreen(
+                  userData:
+                      widget.userData, // Pass userData to CandidateHomeScreen
+                ),
+              ),
+            );
+          },
+        ),
+        title: const Text("Available Jobs"),
+        backgroundColor: Colors.purple,
+        elevation: 0,
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.purple, Colors.purpleAccent],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Column(
+          children: [
+            // Search Bar
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: "Search jobs by title...",
+                  prefixIcon: IconButton(
+                    icon: const Icon(Icons.search),
+                    onPressed: () async {
+                      final query = _searchController.text.trim();
+                      if (query.isNotEmpty) {
+                        setState(() {}); // Update the state with filtered jobs
+                      }
+                    },
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: FutureBuilder<List<dynamic>>(
+                future: _jobs,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text('No open jobs available.'));
+                  }
+
+                  final jobs =
+                      _searchQuery.isNotEmpty ? _filteredJobs : snapshot.data!;
+                  if (jobs.isEmpty) {
+                    return const Center(
+                        child: Text('No jobs match your search.'));
+                  }
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: jobs.length,
+                    itemBuilder: (context, index) {
+                      final job = jobs[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: _buildJobCard(job, context),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

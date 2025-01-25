@@ -1,3 +1,4 @@
+// candidate_home_screen.dart
 import 'package:flutter/material.dart';
 import 'uploadCV.dart';
 import 'dart:convert';
@@ -17,12 +18,41 @@ class CandidateHomeScreen extends StatefulWidget {
 class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
   List<dynamic> jobList = [];
   List<dynamic> applicationList = [];
+  Map<String, dynamic> updatedUserData = {}; // To hold updated user data
 
   @override
   void initState() {
     super.initState();
+    fetchUserID(); // Fetch userID when screen is opened
     fetchJobs();
     fetchApplications();
+  }
+
+  Future<void> fetchUserID() async {
+    final email = widget.userData['email']; // Get email from user data
+    final url = Uri.parse('http://127.0.0.1:39542/get_user_id');
+
+    try {
+      final response = await http.post(
+        url,
+        body: json.encode({"email": email}),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final userId = json.decode(response.body)['userID']; // Get userID
+        setState(() {
+          updatedUserData = {
+            ...widget.userData, // Keep existing data
+            'userID': userId, // Add the userID
+          };
+        });
+      } else {
+        throw Exception('Failed to fetch user ID');
+      }
+    } catch (e) {
+      print('Error fetching user ID: $e');
+    }
   }
 
   Future<void> fetchJobs() async {
@@ -47,8 +77,9 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
       final response = await http.post(
         url,
         body: json.encode({
-          "candidateID": widget.userData['userID']
-        }), // Use candidateID from userData
+          "candidateID": updatedUserData['userID'] ??
+              widget.userData['userID'] // Use updated userID
+        }), // Use candidateID from updatedUserData
         headers: {'Content-Type': 'application/json'},
       );
       if (response.statusCode == 200) {
@@ -67,7 +98,8 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Hello, ${widget.userData['name']}"), // Dynamic user name
+        title: Text(
+            "Hello, ${updatedUserData['name'] ?? widget.userData['name']}"), // Dynamic user name
         backgroundColor: Colors.purple,
         actions: [
           IconButton(
@@ -102,7 +134,8 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    widget.userData['name'], // Dynamic user name
+                    updatedUserData['name'] ??
+                        widget.userData['name'], // Dynamic user name
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -110,7 +143,8 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
                     ),
                   ),
                   Text(
-                    widget.userData['email'], // Dynamic user email
+                    updatedUserData['email'] ??
+                        widget.userData['email'], // Dynamic user email
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
@@ -133,7 +167,10 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const AvailableJobs(),
+                    builder: (context) => AvailableJobs(
+                        userData: updatedUserData.isEmpty
+                            ? widget.userData
+                            : updatedUserData),
                   ),
                 );
               },
@@ -146,8 +183,10 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => JobsInterviewPage(
-                      candidateID: widget
-                          .userData['userID'], // Use candidateID dynamically
+                      userData: updatedUserData.isNotEmpty
+                          ? updatedUserData // Pass updatedUserData if available
+                          : widget
+                              .userData, // Otherwise, pass the original userData
                     ),
                   ),
                 );
@@ -283,7 +322,10 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => UploadCVPage(jobID: jobID),
+                      builder: (context) => UploadCVPage(
+                        jobID: jobID,
+                        userData: widget.userData, // Pass the user data here
+                      ),
                     ),
                   );
                 },

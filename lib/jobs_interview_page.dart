@@ -1,19 +1,20 @@
+// jobs_interview_page.dart
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'interview_screen.dart';
 
 class JobsInterviewPage extends StatefulWidget {
-  final String candidateID;
+  final Map<String, dynamic> userData; // Now expecting userData map
 
-  const JobsInterviewPage({required this.candidateID, super.key});
+  const JobsInterviewPage({required this.userData, super.key});
 
   @override
   State<JobsInterviewPage> createState() => _JobsInterviewPageState();
 }
 
 class _JobsInterviewPageState extends State<JobsInterviewPage> {
-  List<Map<String, String>> invitations = [];
+  List<Map<String, dynamic>> invitations = [];
   bool isLoading = true;
   String errorMessage = '';
 
@@ -25,19 +26,16 @@ class _JobsInterviewPageState extends State<JobsInterviewPage> {
 
   Future<void> fetchInvitations() async {
     final url = Uri.parse(
-        'http://127.0.0.1:39542/get_invitations?candidateID=${widget.candidateID}');
+        'http://127.0.0.1:39542/get_invitations?email=${widget.userData["email"]}');
     try {
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
-        // Log the response for debugging
-        print('Response Data: $data');
-
         if (data['invitations'] != null && data['invitations'] is List) {
           setState(() {
-            invitations = List<Map<String, String>>.from(
+            invitations = List<Map<String, dynamic>>.from(
               data['invitations'].map(
                 (invitation) => {
                   "invitationID": invitation["invitationID"]?.toString() ?? "",
@@ -63,7 +61,6 @@ class _JobsInterviewPageState extends State<JobsInterviewPage> {
         isLoading = false;
         errorMessage = 'Error fetching invitations: $error';
       });
-      print('Error fetching invitations: $error');
     }
   }
 
@@ -107,15 +104,12 @@ class _JobsInterviewPageState extends State<JobsInterviewPage> {
                           itemCount: invitations.length,
                           itemBuilder: (context, index) {
                             final invitation = invitations[index];
-                            print(
-                                'Rendering invitation: $invitation'); // Debug log
                             return JobInterviewCard(
-                              candidateID: widget.candidateID,
+                              userData: widget.userData, // Pass userData here
                               invitationID: invitation['invitationID']!,
                               title: invitation['title']!,
-                              date: invitation['start']!.split(' ')[0],
-                              time: invitation['start']!.split(' ')[1],
-                              deadline: invitation['end']!,
+                              startDate: invitation['start']!,
+                              endDate: invitation['end']!,
                               note: invitation['comment']!,
                             );
                           },
@@ -138,22 +132,20 @@ class _JobsInterviewPageState extends State<JobsInterviewPage> {
 }
 
 class JobInterviewCard extends StatelessWidget {
-  final String candidateID;
+  final Map<String, dynamic> userData; // Receive userData
   final String invitationID;
   final String title;
-  final String date;
-  final String time;
-  final String deadline;
+  final String startDate;
+  final String endDate;
   final String note;
 
   const JobInterviewCard({
     super.key,
-    required this.candidateID,
+    required this.userData,
     required this.invitationID,
     required this.title,
-    required this.date,
-    required this.time,
-    required this.deadline,
+    required this.startDate,
+    required this.endDate,
     required this.note,
   });
 
@@ -185,9 +177,8 @@ class JobInterviewCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Text('📅 Interview Date: $date'),
-            Text('⏰ Interview Time: $time'),
-            Text('⏳ Deadline: $deadline'),
+            Text('📅 Interview Start Date: $startDate'),
+            Text('⏳ Interview End Date: $endDate'),
             const SizedBox(height: 10),
             Text(
               '📝 $note',
@@ -206,11 +197,12 @@ class JobInterviewCard extends StatelessWidget {
                 ),
                 ElevatedButton(
                   onPressed: () {
+                    // Pass user data and invitationID to InterviewScreen
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => InterviewScreen(
-                          candidateID: candidateID,
+                          userData: userData, // Pass the full user data
                           invitationID: invitationID,
                         ),
                       ),
