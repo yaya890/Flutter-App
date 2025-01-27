@@ -4,8 +4,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class InterviewScreen extends StatefulWidget {
-  final Map<String, dynamic> userData; // Accept userData as a parameter
-  final String invitationID;
+  final Map<String, dynamic> userData;
+  final int invitationID;
 
   const InterviewScreen(
       {super.key, required this.userData, required this.invitationID});
@@ -17,11 +17,11 @@ class InterviewScreen extends StatefulWidget {
 class _InterviewScreenState extends State<InterviewScreen> {
   final List<Map<String, String>> messages = [];
   final TextEditingController _messageController = TextEditingController();
-  bool isChatEnding = false; // Marks whether the interview has ended
-  bool showEndButton = false; // Displays the "End" button after completion
-  Map<String, dynamic>? jobDetails; // Holds job details from the backend
-  List<dynamic>? jobQuestions; // Holds job questions from the backend
-  int currentQuestionIndex = 0; // Tracks the current question index
+  bool isChatEnding = false;
+  bool showEndButton = false;
+  Map<String, dynamic>? jobDetails;
+  List<String>? jobQuestions;
+  int currentQuestionIndex = 0;
 
   @override
   void initState() {
@@ -41,8 +41,8 @@ class _InterviewScreenState extends State<InterviewScreen> {
         final data = json.decode(response.body);
 
         setState(() {
-          jobDetails = data['job_details']; // Store job details for later use
-          jobQuestions = data['job_questions']; // Store job questions list
+          jobDetails = data['job_details'];
+          jobQuestions = List<String>.from(data['job_questions']);
           currentQuestionIndex = data['currentQuestionIndex'] ?? 0;
           messages.add({"bot": data["bot_message"]});
         });
@@ -71,6 +71,7 @@ class _InterviewScreenState extends State<InterviewScreen> {
           "invitationID": widget.invitationID,
           "jobDetails": jobDetails,
           "message": userMessage,
+          "userData": widget.userData, // Passing userData here
           "chat_history": messages.map((m) {
             return {
               "role": m.containsKey('user') ? "user" : "assistant",
@@ -91,7 +92,6 @@ class _InterviewScreenState extends State<InterviewScreen> {
               data["currentQuestionIndex"] ?? currentQuestionIndex;
           isChatEnding = data["is_chat_ending"] == true;
 
-          // If the chat has ended, show the end button
           if (isChatEnding) {
             showEndButton = true;
           }
@@ -109,7 +109,6 @@ class _InterviewScreenState extends State<InterviewScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Background gradient
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(

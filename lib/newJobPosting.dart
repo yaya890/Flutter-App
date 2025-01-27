@@ -1,3 +1,4 @@
+// newJobPosting.dart
 /* import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -209,7 +210,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class NewJobPosting extends StatelessWidget {
-  const NewJobPosting({super.key});
+  final Map<String, dynamic> userData;
+
+  const NewJobPosting({super.key, required this.userData});
 
   @override
   Widget build(BuildContext context) {
@@ -240,13 +243,15 @@ class NewJobPosting extends StatelessWidget {
           ),
         ),
       ),
-      body: JobPostingForm(),
+      body: JobPostingForm(userData: userData),
     );
   }
 }
 
 class JobPostingForm extends StatefulWidget {
-  const JobPostingForm({super.key});
+  final Map<String, dynamic> userData;
+
+  const JobPostingForm({super.key, required this.userData});
 
   @override
   _JobPostingFormState createState() => _JobPostingFormState();
@@ -259,6 +264,9 @@ class _JobPostingFormState extends State<JobPostingForm> {
   final descriptionController = TextEditingController();
   final requirementsController = TextEditingController();
   final jobQuestionsController = TextEditingController();
+  final statusController = TextEditingController();
+  final experienceYearsController = TextEditingController();
+  final educationController = TextEditingController();
 
   // Function to submit the job posting
   Future<void> submitJobPosting() async {
@@ -267,9 +275,12 @@ class _JobPostingFormState extends State<JobPostingForm> {
       'title': titleController.text,
       'department': departmentController.text,
       'description': descriptionController.text,
-      'requirements': requirementsController.text,
-      'jobQuestions': jobQuestionsController.text,
-      'hr_manager_id': 1, // Replace with the actual manager ID if available
+      'required_skills': requirementsController.text,
+      'job_questions': jobQuestionsController.text,
+      'status': statusController.text,
+      'experience_years': int.tryParse(experienceYearsController.text) ?? 0,
+      'education': educationController.text,
+      'user_data': widget.userData,
     };
 
     try {
@@ -292,6 +303,9 @@ class _JobPostingFormState extends State<JobPostingForm> {
         descriptionController.clear();
         requirementsController.clear();
         jobQuestionsController.clear();
+        statusController.clear();
+        experienceYearsController.clear();
+        educationController.clear();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to post job: ${response.body}')),
@@ -361,6 +375,36 @@ class _JobPostingFormState extends State<JobPostingForm> {
             ),
             const SizedBox(height: 8),
             _buildTextField(controller: jobQuestionsController, maxLines: 4),
+
+            const SizedBox(height: 20),
+
+            // Status Field
+            const Text(
+              'Status',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            _buildTextField(controller: statusController),
+
+            const SizedBox(height: 20),
+
+            // Experience Years Field
+            const Text(
+              'Experience Years',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            _buildTextField(controller: experienceYearsController),
+
+            const SizedBox(height: 20),
+
+            // Education Field
+            const Text(
+              'Education',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            _buildTextField(controller: educationController),
 
             const SizedBox(height: 30),
 

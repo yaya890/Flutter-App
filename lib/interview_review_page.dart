@@ -1,44 +1,104 @@
+// interview_review_page.dart
 import 'package:flutter/material.dart';
 import 'interview_summary_screen.dart';
 import 'interview_invitation.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
-class InterviewReviewPage extends StatelessWidget {
-  final List<Map<String, String>> interviews = [
-    {
-      'title': 'Software Engineer',
-      'candidate': 'Jack Williamson',
-      'status': 'Completed',
-      'outcome': 'Pass',
-      'action': 'View Summary',
-    },
-    {
-      'title': 'Marketing Specialist',
-      'candidate': 'Sophia Davis',
-      'status': 'Pending',
-      'outcome': '-',
-      'action': 'Scheduled',
-    },
-    {
-      'title': 'Data Analyst',
-      'candidate': 'Emma Williams',
-      'status': 'Not Completed',
-      'outcome': '-',
-      'action': 'Rescheduled',
-    },
-    {
-      'title': 'Product Manager',
-      'candidate': 'Ethan Miller',
-      'status': 'Completed',
-      'outcome': 'Fail',
-      'action': 'View Summary',
-    },
-  ];
+class InterviewReviewPage extends StatefulWidget {
+  const InterviewReviewPage({super.key});
 
-  InterviewReviewPage({super.key});
+  @override
+  _InterviewReviewPageState createState() => _InterviewReviewPageState();
+}
+
+class _InterviewReviewPageState extends State<InterviewReviewPage> {
+  List<Map<String, dynamic>> interviews = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchInterviews();
+  }
+
+  Future<void> _fetchInterviews() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://127.0.0.1:39542/get_all_candidates_invitations'),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          interviews = data.map((interview) {
+            return {
+              'title': interview['job_title'],
+              'candidate': interview['candidate_name'],
+              'status': interview['status'],
+              'application_id': interview['application_id'],
+              'invitation_id': interview['invitation_id'],
+            };
+          }).toList();
+          isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load data');
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
+  // Function to fetch the summary from the backend
+  Future<String> _fetchCandidateSummary(
+      int invitationId, int applicationId) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+            'http://127.0.0.1:39542/get_candidate_summary?invitation_id=$invitationId&application_id=$applicationId'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['summary']; // Return the summary
+      } else if (response.statusCode == 404) {
+        throw Exception('No summary found for the provided IDs');
+      } else {
+        throw Exception('Failed to load summary');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            // Navigate back to HRHomeScreen
+            Navigator.pop(context);
+          },
+        ),
+        title: const Text(
+          'Interviews Review',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: Colors.deepPurple,
+        elevation: 0,
+      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -49,27 +109,17 @@ class InterviewReviewPage extends StatelessWidget {
         ),
         child: Column(
           children: [
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Text(
-                  'Interviews Review',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
             Expanded(
-              child: ListView.builder(
-                itemCount: interviews.length,
-                itemBuilder: (context, index) {
-                  final interview = interviews[index];
-                  return _buildInterviewCard(interview, context);
-                },
-              ),
+              child: isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Colors.white))
+                  : ListView.builder(
+                      itemCount: interviews.length,
+                      itemBuilder: (context, index) {
+                        final interview = interviews[index];
+                        return _buildInterviewCard(interview, context);
+                      },
+                    ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -80,7 +130,7 @@ class InterviewReviewPage extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => InterviewInvitationPage(),
+                        builder: (context) => const InterviewInvitationPage(),
                       ),
                     );
                   },
@@ -111,7 +161,7 @@ class InterviewReviewPage extends StatelessWidget {
   }
 
   Widget _buildInterviewCard(
-      Map<String, String> interview, BuildContext context) {
+      Map<String, dynamic> interview, BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       padding: const EdgeInsets.all(15),
@@ -137,7 +187,7 @@ class InterviewReviewPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  interview['title']!,
+                  interview['title'],
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -153,36 +203,46 @@ class InterviewReviewPage extends StatelessWidget {
                   'Interview Status: ${interview['status']}',
                   style: const TextStyle(fontSize: 14, color: Colors.black87),
                 ),
-                Text(
-                  'Interview Outcome: ${interview['outcome']}',
-                  style: const TextStyle(fontSize: 14, color: Colors.black87),
-                ),
               ],
             ),
           ),
           ElevatedButton(
-            onPressed: interview['action'] == 'View Summary'
-                ? () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => InterviewSummaryScreen(
-                          candidateName: interview['candidate']!,
-                          interviewTitle: interview['title']!,
+            onPressed: interview['status'] == 'Interview Done'
+                ? () async {
+                    try {
+                      // Fetch the summary from the backend
+                      final summary = await _fetchCandidateSummary(
+                        interview['invitation_id'],
+                        interview['application_id'],
+                      );
+
+                      // Navigate to the InterviewSummaryScreen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => InterviewSummaryScreen(
+                            candidateName: interview['candidate'],
+                            interviewTitle: interview['title'],
+                            summary: summary, // Pass the fetched summary
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                    }
                   }
-                : null, // Disable for other actions
+                : null, // Disable for other statuses
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.deepPurple,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: Text(
-              interview['action']!,
-              style: const TextStyle(color: Colors.white),
+            child: const Text(
+              'View Summary',
+              style: TextStyle(color: Colors.white),
             ),
           ),
         ],

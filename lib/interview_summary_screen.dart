@@ -1,13 +1,16 @@
+// interview_summary_screen.dart
 import 'package:flutter/material.dart';
 
 class InterviewSummaryScreen extends StatelessWidget {
   final String candidateName;
   final String interviewTitle;
+  final String summary;
 
   const InterviewSummaryScreen({
     super.key,
     required this.candidateName,
     required this.interviewTitle,
+    required this.summary,
   });
 
   @override
@@ -21,14 +24,76 @@ class InterviewSummaryScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Display Candidate Name
             Text(
-              'Candidate: $candidateName',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              candidateName,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            const SizedBox(height: 10),
-            const Text(
-              'Summary details go here...',
-              style: TextStyle(fontSize: 16),
+            const SizedBox(height: 8),
+
+            // Display Interview Title
+            Text(
+              interviewTitle,
+              style: const TextStyle(
+                fontSize: 18,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Display Summary
+            Expanded(
+              child: SingleChildScrollView(
+                child: Text(
+                  summary,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Buttons Row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Reject Button
+                ElevatedButton(
+                  onPressed: () {
+                    // Add Reject logic here
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32, vertical: 16),
+                  ),
+                  child: const Text(
+                    'Reject',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+
+                // Schedule 2nd Interview Button
+                ElevatedButton(
+                  onPressed: () {
+                    // Add Schedule 2nd Interview logic here
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32, vertical: 16),
+                  ),
+                  child: const Text(
+                    'Schedule 2nd Interview',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

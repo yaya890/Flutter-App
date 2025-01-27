@@ -7,17 +7,17 @@ import 'jobs_interview_page.dart';
 import 'available_jobs.dart';
 
 class CandidateHomeScreen extends StatefulWidget {
-  final Map<String, dynamic> userData; // Accept userData as a parameter
-
   const CandidateHomeScreen({super.key, required this.userData});
+
+  final Map<String, dynamic> userData; // Accept userData as a parameter
 
   @override
   _CandidateHomeScreenState createState() => _CandidateHomeScreenState();
 }
 
 class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
-  List<dynamic> jobList = [];
   List<dynamic> applicationList = [];
+  List<dynamic> jobList = [];
   Map<String, dynamic> updatedUserData = {}; // To hold updated user data
 
   @override
@@ -76,183 +76,23 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
     try {
       final response = await http.post(
         url,
-        body: json.encode({
-          "candidateID": updatedUserData['userID'] ??
-              widget.userData['userID'] // Use updated userID
-        }), // Use candidateID from updatedUserData
+        body: json.encode(widget.userData), // Pass the entire user data here
         headers: {'Content-Type': 'application/json'},
       );
+
       if (response.statusCode == 200) {
+        final List<dynamic> results = json.decode(response.body);
+
         setState(() {
-          applicationList = json.decode(response.body);
+          applicationList = results;
         });
       } else {
-        throw Exception('Failed to load applications');
+        final errorResponse = json.decode(response.body);
+        print('Error: ${errorResponse['error']}');
       }
     } catch (e) {
-      print(e);
+      print('Error fetching applications: $e');
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-            "Hello, ${updatedUserData['name'] ?? widget.userData['name']}"), // Dynamic user name
-        backgroundColor: Colors.purple,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: const BoxDecoration(
-                color: Colors.purple,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white,
-                    child: Icon(
-                      Icons.person,
-                      size: 40,
-                      color: Colors.purple,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    updatedUserData['name'] ??
-                        widget.userData['name'], // Dynamic user name
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    updatedUserData['email'] ??
-                        widget.userData['email'], // Dynamic user email
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.home),
-              title: const Text("Home"),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.work),
-              title: const Text("Available Jobs"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AvailableJobs(
-                        userData: updatedUserData.isEmpty
-                            ? widget.userData
-                            : updatedUserData),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.mail_outline),
-              title: const Text("Interviews Invitations"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => JobsInterviewPage(
-                      userData: updatedUserData.isNotEmpty
-                          ? updatedUserData // Pass updatedUserData if available
-                          : widget
-                              .userData, // Otherwise, pass the original userData
-                    ),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.exit_to_app),
-              title: const Text("Logout"),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          const Text(
-            "Jobs Listings\nRecommended for you",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          jobList.isEmpty
-              ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: jobList.map((job) {
-                      return _buildJobCard(
-                        context,
-                        job['title'],
-                        job['department'],
-                        job['requiredSkills'],
-                        job['experienceYears'],
-                        job['education'],
-                        job['description'],
-                        job['jobID'],
-                      );
-                    }).toList(),
-                  ),
-                ),
-          const SizedBox(height: 24),
-          _buildSectionHeader("My Applications"),
-          applicationList.isEmpty
-              ? const Text("No applications found.")
-              : Column(
-                  children: applicationList.map((application) {
-                    return _buildApplicationRow(
-                      application['jobTitle'],
-                      application['status'],
-                      application['description'],
-                      application['department'],
-                      application['requiredSkills'],
-                      application['experienceYears'],
-                      application['education'],
-                    );
-                  }).toList(),
-                ),
-          const SizedBox(height: 24),
-          _buildSectionHeader("My Jobs Interviews"),
-          _buildInterviewRow(
-              "Software Engineer", "October 25, 2024", "10:00 PM"),
-        ],
-      ),
-    );
   }
 
   Widget _buildJobCard(
@@ -448,6 +288,167 @@ class _CandidateHomeScreenState extends State<CandidateHomeScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
             child: const Text("Start"),
           ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+            "Hello, ${updatedUserData['name'] ?? widget.userData['name']}"), // Dynamic user name
+        backgroundColor: Colors.purple,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(
+                color: Colors.purple,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const CircleAvatar(
+                    radius: 30,
+                    backgroundColor: Colors.white,
+                    child: Icon(
+                      Icons.person,
+                      size: 40,
+                      color: Colors.purple,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    updatedUserData['name'] ??
+                        widget.userData['name'], // Dynamic user name
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    updatedUserData['email'] ??
+                        widget.userData['email'], // Dynamic user email
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.home),
+              title: const Text("Home"),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.work),
+              title: const Text("Available Jobs"),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AvailableJobs(
+                        userData: updatedUserData.isEmpty
+                            ? widget.userData
+                            : updatedUserData),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.mail_outline),
+              title: const Text("Interviews Invitations"),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => JobsInterviewPage(
+                      userData: updatedUserData.isNotEmpty
+                          ? updatedUserData // Pass updatedUserData if available
+                          : widget
+                              .userData, // Otherwise, pass the original userData
+                    ),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.exit_to_app),
+              title: const Text("Logout"),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          const Text(
+            "Jobs Listings\nRecommended for you",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          jobList.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: jobList.map((job) {
+                      return _buildJobCard(
+                        context,
+                        job['title'],
+                        job['department'],
+                        job['requiredSkills'],
+                        job['experienceYears'],
+                        job['education'],
+                        job['description'],
+                        job['jobID'],
+                      );
+                    }).toList(),
+                  ),
+                ),
+          const SizedBox(height: 24),
+          _buildSectionHeader("My Applications"),
+          applicationList.isEmpty
+              ? const Text("No applications found.")
+              : Column(
+                  children: applicationList.map((application) {
+                    return _buildApplicationRow(
+                      application['jobTitle'],
+                      application['status'],
+                      application['description'],
+                      application['department'],
+                      application['requiredSkills'],
+                      application['experienceYears'],
+                      application['education'],
+                    );
+                  }).toList(),
+                ),
+          const SizedBox(height: 24),
+          _buildSectionHeader("My Jobs Interviews"),
+          _buildInterviewRow(
+              "Software Engineer", "October 25, 2024", "10:00 PM"),
         ],
       ),
     );

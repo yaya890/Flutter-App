@@ -1,3 +1,4 @@
+// applications.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
@@ -14,6 +15,7 @@ class ApplicationsPage extends StatefulWidget {
 
 class _ApplicationsPageState extends State<ApplicationsPage> {
   late Future<List<Map<String, dynamic>>> _applications;
+  List<Map<String, dynamic>> _sortedApplications = [];
 
   @override
   void initState() {
@@ -48,9 +50,29 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
     }
   }
 
-  void sortApplications() {
-    // Add sort logic here
-    debugPrint("Sort button pressed");
+  // Updated sortApplications function to call the sort route and handle the response
+  void sortApplications() async {
+    try {
+      final url =
+          Uri.parse('http://127.0.0.1:39542/sort_applications/${widget.jobID}');
+      final response = await http.post(url);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final sortedList =
+            List<Map<String, dynamic>>.from(data['sorted_applications']);
+        setState(() {
+          _sortedApplications = sortedList;
+        });
+      } else {
+        throw Exception("Failed to sort applications");
+      }
+    } catch (e) {
+      print("Error sorting applications: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error sorting applications: $e")),
+      );
+    }
   }
 
   @override
@@ -121,12 +143,17 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
 
                     final applications = snapshot.data!;
                     return ListView.builder(
-                      itemCount: applications.length,
+                      itemCount: _sortedApplications.isNotEmpty
+                          ? _sortedApplications.length
+                          : applications.length,
                       itemBuilder: (context, index) {
-                        final application = applications[index];
+                        final application = _sortedApplications.isNotEmpty
+                            ? _sortedApplications[index]
+                            : applications[index];
                         return _buildApplicantRow(
                           name: application['name'] ?? 'Unknown',
                           cvUrl: application['cvPath'] ?? '',
+                          score: application['score'] ?? 0.0,
                         );
                       },
                     );
@@ -166,7 +193,8 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
     );
   }
 
-  Widget _buildApplicantRow({required String name, required String cvUrl}) {
+  Widget _buildApplicantRow(
+      {required String name, required String cvUrl, required double score}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Row(
@@ -192,6 +220,13 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
                       color: Colors.lightBlue,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'Score: ${score.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
                     ),
                   ),
                 ],

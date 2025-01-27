@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'interview_screen.dart';
 
 class JobsInterviewPage extends StatefulWidget {
-  final Map<String, dynamic> userData; // Now expecting userData map
+  final Map<String, dynamic> userData;
 
   const JobsInterviewPage({required this.userData, super.key});
 
@@ -38,11 +38,12 @@ class _JobsInterviewPageState extends State<JobsInterviewPage> {
             invitations = List<Map<String, dynamic>>.from(
               data['invitations'].map(
                 (invitation) => {
-                  "invitationID": invitation["invitationID"]?.toString() ?? "",
-                  "title": invitation["title"]?.toString() ?? "No Title",
-                  "start": invitation["start"]?.toString() ?? "Unknown Start",
-                  "end": invitation["end"]?.toString() ?? "Unknown End",
-                  "comment": invitation["comment"]?.toString() ?? "No Comments",
+                  "invitationID":
+                      invitation["invitation_id"], // Keep as an integer
+                  "title": invitation["title"] ?? "No Title",
+                  "start": invitation["start"] ?? "Unknown Start",
+                  "end": invitation["end"] ?? "Unknown End",
+                  "comment": invitation["comment"] ?? "No Comments",
                 },
               ),
             );
@@ -79,7 +80,6 @@ class _JobsInterviewPageState extends State<JobsInterviewPage> {
       ),
       body: Stack(
         children: [
-          // Decorative Circles
           Positioned(
             top: -50,
             left: -50,
@@ -90,8 +90,6 @@ class _JobsInterviewPageState extends State<JobsInterviewPage> {
             right: -50,
             child: _decorativeCircle(150, Colors.purple.withOpacity(0.2)),
           ),
-
-          // Content
           isLoading
               ? const Center(child: CircularProgressIndicator())
               : errorMessage.isNotEmpty
@@ -105,12 +103,12 @@ class _JobsInterviewPageState extends State<JobsInterviewPage> {
                           itemBuilder: (context, index) {
                             final invitation = invitations[index];
                             return JobInterviewCard(
-                              userData: widget.userData, // Pass userData here
-                              invitationID: invitation['invitationID']!,
-                              title: invitation['title']!,
-                              startDate: invitation['start']!,
-                              endDate: invitation['end']!,
-                              note: invitation['comment']!,
+                              userData: widget.userData,
+                              invitationID: invitation['invitationID'],
+                              title: invitation['title'],
+                              startDate: invitation['start'],
+                              endDate: invitation['end'],
+                              note: invitation['comment'],
                             );
                           },
                         ),
@@ -132,8 +130,8 @@ class _JobsInterviewPageState extends State<JobsInterviewPage> {
 }
 
 class JobInterviewCard extends StatelessWidget {
-  final Map<String, dynamic> userData; // Receive userData
-  final String invitationID;
+  final Map<String, dynamic> userData;
+  final int invitationID; // Changed to int
   final String title;
   final String startDate;
   final String endDate;
@@ -197,13 +195,13 @@ class JobInterviewCard extends StatelessWidget {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    // Pass user data and invitationID to InterviewScreen
+                    // Pass invitationID as an integer to InterviewScreen
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => InterviewScreen(
-                          userData: userData, // Pass the full user data
-                          invitationID: invitationID,
+                          userData: userData,
+                          invitationID: invitationID, // Pass as an integer
                         ),
                       ),
                     );

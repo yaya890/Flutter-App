@@ -98,7 +98,7 @@ with open('secret_key.txt', 'r') as f:
 
 
 #open ai key
-openai.api_key = "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"
+openai.api_key = "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"
 
 
 # Initialize Flask app
@@ -368,27 +368,59 @@ def add_job():
     title = data.get('title')
     department = data.get('department')
     description = data.get('description')
-    requirements = data.get('requirements')
-    job_questions = data.get('jobQuestions', "")  # Default to empty string if not provided
+    requirements = data.get('required_skills')
+    job_questions = data.get('job_questions', "")
+    status = data.get('status')
+    experience_years = data.get('experience_years', 0)  # Default to 0 if not provided
+    education = data.get('education')
+    user_data = data.get('user_data', {})
 
-    # Validate required fields
-    if not all([title, department, description, requirements]):
-        logging.error("Missing required fields in the request.")
-        return jsonify({"error": "Missing required fields"}), 400
+    # Check for missing fields
+    if not all([title, department, description, requirements, status, education, user_data.get('email')]):
+        return jsonify({"error": "Missing fields"}), 400
 
-    try:
-        cursor = mysql.connection.cursor()
-        cursor.execute("""
-            INSERT INTO Job (title, department, description, requirements, jobQuestions, status)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (title, department, description, requirements, job_questions, "open"))
-        mysql.connection.commit()
-        cursor.close()
-        logging.info(f"Job added successfully: {title}")
-        return jsonify({"message": "Job added successfully"}), 201
-    except Exception as e:
-        logging.error(f"Error adding job: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    # Extract the email from user_data
+    email = user_data.get('email')
+
+    # Query Supabase for user_id based on email
+    response = supabase.table('user').select('user_id').eq('email', email).execute()
+    user = response.data
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    user_id = user[0]['user_id']
+    
+    # Query Supabase for hr_id based on user_id
+    hr_response = supabase.table('hrmanager').select('hr_id').eq('user_id', user_id).execute()
+    hr_result = hr_response.data
+
+    if not hr_result:
+        return jsonify({"error": "HR manager not found"}), 404
+
+    hr_id = hr_result[0]['hr_id']
+
+    # Prepare the job data
+    job_data = {
+        'title': title,
+        'department': department,
+        'description': description,
+        'required_skills': requirements,
+        'job_questions': job_questions,
+        'status': status,
+        'hr_id': hr_id,
+        'experience_years': experience_years,
+        'education': education
+    }
+
+    # Insert job into Job table
+    response = supabase.table('job').insert(job_data).execute()
+
+    if not response.data:
+        return jsonify({"error": "Failed to add job"}), 500
+
+    return jsonify({"message": "Job added successfully"}), 200
+
 
 
 # /get_open_jobs Endpoint
@@ -549,17 +581,20 @@ def get_user_id():
 @app.route('/get_jobs', methods=['GET'])
 def get_jobs():
     try:
-        cursor = mysql.connection.cursor()
-        cursor.execute("""
-            SELECT j.jobID, j.title, j.description, j.status
-            FROM Job j
-            ORDER BY j.jobID DESC
-        """)
-        jobs = cursor.fetchall()
-        cursor.close()
+        # Query jobs from the 'job' table, ordered by job_id in descending order
+        response = supabase.table('job').select(
+            'job_id, title, description, status'
+        ).order('job_id', desc=True).execute()
+
+        
+
+        jobs = response.data
 
         # Convert results to a list of dictionaries
-        result = [{"jobID": job[0], "title": job[1], "description": job[2], "status": job[3]} for job in jobs]
+        result = [{"jobID": job['job_id'],
+                    "title": job['title'],
+                    "description": job['description'],
+                    "status": job['status']} for job in jobs]
 
         return jsonify(result), 200
     except Exception as e:
@@ -572,24 +607,12 @@ def get_jobs():
 @app.route('/get_application/<int:jobID>', methods=['GET'])
 def get_application(jobID):
     try:
-        cursor = mysql.connection.cursor()
-        query = """
-            SELECT 
-                ja.applicationID,
-                ja.cvPath, 
-                u.name
-            FROM 
-                jobapplication ja
-            JOIN 
-                candidate c ON ja.candidateID = c.candidateID
-            JOIN 
-                user u ON c.userID = u.userID
-            WHERE 
-                ja.jobID = %s
-        """
-        cursor.execute(query, (jobID,))
-        applications = cursor.fetchall()
-        cursor.close()
+        # Query Supabase to get the applications for the given jobID
+        response = supabase.table('jobapplication').select(
+            'application_id, cv_path, candidate_id'
+        ).eq('job_id', jobID).execute()
+
+        applications = response.data
 
         if not applications:
             logging.warning(f"No applications found for JobID: {jobID}")
@@ -598,11 +621,34 @@ def get_application(jobID):
         # Build result list
         result = []
         for app in applications:
-            cleaned_path = os.path.basename(app[1]).replace("\\", "/")
+            # Fetch candidate's user_id
+            candidate_response = supabase.table('candidate').select(
+                'user_id'
+            ).eq('candidate_id', app['candidate_id']).execute()
+
+            candidate_data = candidate_response.data
+            if not candidate_data:
+                continue  # If no candidate found, skip this application
+
+            user_id = candidate_data[0]['user_id']
+
+            # Fetch the user's name using the user_id
+            user_response = supabase.table('user').select(
+                'name'
+            ).eq('user_id', user_id).execute()
+
+            user_data = user_response.data
+            if not user_data:
+                continue  # If no user found, skip this application
+
+            user_name = user_data[0]['name']
+
+            # Clean the CV path
+            cleaned_path = os.path.basename(app['cv_path']).replace("\\", "/")
             result.append({
-                "applicationID": app[0],
+                "applicationID": app['application_id'],
                 "cvPath": f"{BASE_URL}{UPLOAD_FOLDER}/{cleaned_path}",
-                "name": app[2]
+                "name": user_name
             })
 
         logging.info(f"Applications retrieved successfully for JobID: {jobID}")
@@ -611,6 +657,8 @@ def get_application(jobID):
     except Exception as e:
         logging.error(f"Error retrieving applications for JobID {jobID}: {str(e)}")
         return jsonify({"message": "Error retrieving applications", "error": str(e)}), 500
+
+
 
 
 # File Download Route
@@ -634,73 +682,112 @@ def download_file(filename):
 @app.route('/get_invitations', methods=['GET'])
 def get_invitations():
     email = request.args.get('email')  # Retrieve email from query parameters
+
+    # Check for missing email
     if not email:
-        return jsonify({"error": "Missing email"}), 400  # Returning error if email is missing
+        return jsonify({"error": "Missing email"}), 400
 
-    try:
-        # Step 1: Fetch the user_id based on the email
-        user_response = supabase.table("user").select("user_id").eq("email", email).execute()
-        if not user_response['data']:  # Check if data is available
-            return jsonify({"error": "User not found"}), 404  # Returning error if user is not found
+    # Step 1: Fetch the user based on email
+    user_response = supabase.table("user").select("user_id").eq("email", email).execute()
+    user_data = user_response.data
 
-        user_id = user_response['data'][0].get("user_id")  # Get user_id from response
+    if not user_data:
+        return jsonify({"error": "User not found"}), 404
 
-        # Step 2: Fetch the candidate_id based on the user_id
-        candidate_response = supabase.table("candidate").select("candidate_id").eq("user_id", user_id).execute()
-        if not candidate_response['data']:  # Check if data is available
-            return jsonify({"error": "Candidate not found"}), 404  # Returning error if candidate is not found
+    user_id = user_data[0]["user_id"]  # Get the user_id
 
-        candidate_id = candidate_response['data'][0].get("candidate_id")  # Get candidate_id
+    # Step 2: Fetch the candidate based on user_id
+    candidate_response = supabase.table("candidate").select("candidate_id").eq("user_id", user_id).execute()
+    candidate_data = candidate_response.data
 
-        # Step 3: Fetch job applications for the candidate where invitation_id is not null
-        job_applications_response = supabase.table("jobapplication").select(
-            "invitation_id, job_id"
-        ).eq("candidate_id", candidate_id).not_("invitation_id", "is", None).execute()
+    if not candidate_data:
+        return jsonify({"error": "Candidate not found"}), 404
 
-        if not job_applications_response['data']:  # Check if data is available
-            return jsonify({"invitations": []}), 200  # Returning empty list if no invitations are found
+    candidate_id = candidate_data[0]["candidate_id"]
 
-        invitations = []
+    # Step 3: Fetch job applications with invitations
+    job_applications_response = (
+        supabase.table("jobapplication")
+        .select("invitation_id, job_id")
+        .eq("candidate_id", candidate_id)
+        .execute()
+    )
+    job_applications = job_applications_response.data
 
-        # Step 4: Iterate over job applications and fetch corresponding details
-        for application in job_applications_response['data']:
-            invitation_id = application.get("invitation_id")
-            job_id = application.get("job_id")
+    if not job_applications:
+        return jsonify({"invitations": []}), 200  # No invitations found, return empty list
 
-            # Fetch interview invitation details
-            invitation_response = supabase.table("interview_invitation").select(
-                "start_time, end_time, comment, invitation_id"
-            ).eq("invitation_id", invitation_id).execute()
-            if not invitation_response['data']:  # Check if data is available
-                continue
+    invitations = []
 
-            invitation_details = invitation_response['data'][0]  # Get invitation details
+    # Step 4: Fetch details for each invitation
+    for application in job_applications:
+        invitation_id = application["invitation_id"]
+        job_id = application["job_id"]
 
-            # Fetch the job title
-            job_response = supabase.table("job").select("title").eq("job_id", job_id).execute()
-            if not job_response['data']:  # Check if data is available
-                continue
+        # Fetch interview invitation details
+        invitation_response = supabase.table("interview_invitation").select(
+            "start_time, end_time, comment, invitation_id"
+        ).eq("invitation_id", invitation_id).execute()
 
-            job_details = job_response['data'][0]  # Get job details
+        invitation_data = invitation_response.data
+        if not invitation_data:
+            continue
 
-            # Append invitation details to the result list
-            invitations.append({
-                "title": job_details.get("title"),
-                "start": invitation_details.get("start_time"),
-                "end": invitation_details.get("end_time"),
-                "comment": invitation_details.get("comment"),
-                "invitation_id": invitation_details.get("invitation_id"),
+        # Fetch the job title
+        job_response = supabase.table("job").select("title").eq("job_id", job_id).execute()
+        job_data = job_response.data
+        if not job_data:
+            continue
+
+        # Add invitation details to the response
+        invitations.append({
+            "title": job_data[0]["title"],
+            "start": invitation_data[0]["start_time"],
+            "end": invitation_data[0]["end_time"],
+            "comment": invitation_data[0]["comment"],
+            "invitation_id": invitation_data[0]["invitation_id"],
+        })
+
+    return jsonify({"invitations": invitations}), 200
+
+
+
+
+
+# HR invitations route
+@app.route('/interview_invitations', methods=['GET'])
+def get_interview_invitations():
+    # Fetch all interview invitations
+    invitations = supabase.table('interview_invitation').select('*').execute().data
+    result = []
+
+    for invitation in invitations:
+        # Fetch the job_id from the invitation
+        job_id = invitation.get('job_id')
+        
+        if job_id is None:  # Check if job_id is None
+            print(f"Skipping invitation with missing job_id: {invitation['invitation_id']}")
+            continue  # Skip invitations with missing job_id
+        
+        # Fetch the job from the job table using job_id
+        job = supabase.table('job').select('title').eq('job_id', job_id).execute().data
+        
+        # Debugging logs to check what's being returned
+        print(f"job_id: {job_id}, job: {job}")  # Log job_id and job data
+
+        if job:  # If job exists
+            result.append({
+                "invitation_id": invitation['invitation_id'],
+                "jobID": job_id,
+                "title": job[0]['title'],  # Get the title of the job
+                "start": invitation['start_time'],
+                "end": invitation['end_time'],
+                "comment": invitation['comment']
             })
+        else:
+            print(f"Job not found for job_id: {job_id}")  # Log if job is not found
 
-        return jsonify({"invitations": invitations}), 200
-
-    except Exception as e:
-        logging.error(f"Error fetching invitations for email {email}: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500  # Handling unexpected server errors
-    # Handling unexpected server errors
-        # Handling unexpected server errors
-
-
+    return jsonify(result)
 
 
 
@@ -735,34 +822,34 @@ def start_interview():
         data = request.json
         invitation_id = data.get('invitationID')
 
+        # Print the invitationID for debugging
+        print(f"Received invitationID: {invitation_id}")
+
         if not invitation_id:
             return jsonify({"error": "invitationID is required"}), 400
 
-        # Step 1: Get jobID from interview_invitation
-        cursor = mysql.connection.cursor()
-        cursor.execute("""
-            SELECT jobID FROM interview_invitation WHERE invitationID = %s
-        """, (invitation_id,))
-        job_id_result = cursor.fetchone()
-
-        if not job_id_result:
+        # Step 1: Get jobID from interview_invitation table
+        invitation_response = supabase.table("interview_invitation").select("job_id").eq("invitation_id", invitation_id).execute()
+        if not invitation_response.data:
             return jsonify({"error": "No job found for the provided invitationID"}), 404
 
-        job_id = job_id_result[0]
+        job_id = invitation_response.data[0]['job_id']
 
         # Step 2: Get job details from the job table
-        cursor.execute("""
-            SELECT title, department, description, jobQuestions, requiredSkills, experienceYears, education 
-            FROM job WHERE jobID = %s
-        """, (job_id,))
-        job_data = cursor.fetchone()
-        cursor.close()
+        job_response = supabase.table("job").select("title, department, description, job_questions, required_skills, experience_years, education").eq("job_id", job_id).execute()
+        if not job_response.data:
+            return jsonify({"error": "No job details found for the provided job_id"}), 404
 
-        if not job_data:
-            return jsonify({"error": "No job details found for the provided jobID"}), 404
+        job_data = job_response.data[0]
 
         # Extract job details
-        title, department, description, job_questions_raw, required_skills, experience_years, education = job_data
+        title = job_data['title']
+        department = job_data['department']
+        description = job_data['description']
+        job_questions_raw = job_data['job_questions']
+        required_skills = job_data['required_skills']
+        experience_years = job_data['experience_years']
+        education = job_data['education']
 
         # Step 3: Process job questions stored in one line
         job_questions_list = re.split(r'\d+\.\s', job_questions_raw)
@@ -820,7 +907,14 @@ def start_interview():
         return jsonify({"error": str(e)}), 500
 
 
+
+
+
+
 # Endpoint: Send Message
+# Endpoint: Send Message
+
+
 @app.route('/send_message', methods=['POST'])
 def send_message():
     try:
@@ -831,7 +925,8 @@ def send_message():
         job_details = data.get('jobDetails')
         current_question_index = data.get('currentQuestionIndex')
         job_questions = data.get('jobQuestions')
-        invitation_id = data.get('invitationID')  # Add interview ID for identifying interviews
+        invitation_id = data.get('invitationID')
+        user_data = data.get('userData')  # Add user data for identifying the user
 
         # Validate required fields
         if not user_message:
@@ -842,6 +937,8 @@ def send_message():
             return jsonify({"error": "Missing field: 'currentQuestionIndex'"}), 400
         if not job_questions:
             return jsonify({"error": "Missing field: 'jobQuestions'"}), 400
+        if not user_data:
+            return jsonify({"error": "Missing field: 'userData'"}), 400
 
         # Add user's message to chat history
         chat_history.append({"role": "user", "content": user_message})
@@ -894,7 +991,7 @@ def send_message():
         # Add bot's message to chat history
         chat_history.append({"role": "assistant", "content": bot_message})
 
-        # If chat is ending, generate the summary
+        # If chat is ending, generate the summary and update the job application status
         if is_chat_ending:
             summary_prompt = f"""
             Based on the following conversation history, generate a detailed interview summary:
@@ -922,21 +1019,40 @@ def send_message():
             )
             summary = summary_response['choices'][0]['message']['content']
 
-            # Save the summary in the database
-            try:
-                
-                cursor = mysql.connection.cursor()
-                cursor.execute(
-                   """
-                   INSERT INTO chatbot (summary, invitationID)
-                   VALUES (%s, %s)
-                   """,
-                   (summary, invitation_id),
-                )
-                conn.commit()
-                conn.close()
-            except Exception as db_error:
-                logging.error(f"Database error: {str(db_error)}")
+            # Extract email from user_data
+            email = user_data.get('email')
+            if not email:
+                return jsonify({"error": "Missing field: 'email' in userData"}), 400
+
+            # Query the user table to get user_id
+            user_response = supabase.from_('user').select('user_id').eq('email', email).execute()
+            if not user_response.data:
+                return jsonify({"error": "User not found"}), 404
+            user_id = user_response.data[0]['user_id']
+
+            # Query the candidate table to get candidate_id
+            candidate_response = supabase.from_('candidate').select('candidate_id').eq('user_id', user_id).execute()
+            if not candidate_response.data:
+                return jsonify({"error": "Candidate not found"}), 404
+            candidate_id = candidate_response.data[0]['candidate_id']
+
+            # Query the jobapplication table to get application_id
+            job_application_response = supabase.from_('jobapplication').select('application_id').eq('candidate_id', candidate_id).eq('invitation_id', invitation_id).execute()
+            if not job_application_response.data:
+                return jsonify({"error": "Job application not found"}), 404
+            application_id = job_application_response.data[0]['application_id']
+
+            # Insert the summary into the chatbot table
+            supabase.from_('chatbot').insert({
+                'invitation_id': invitation_id,
+                'summary': summary,
+                'application_id': application_id
+            }).execute()
+
+            # Update the job application status to "Interview Done"
+            supabase.from_('jobapplication').update({
+                'status': 'Interview Done'
+            }).eq('application_id', application_id).execute()
 
         return jsonify({
             "bot_message": bot_message,
@@ -948,54 +1064,118 @@ def send_message():
     except Exception as e:
         logging.error(f"Error in /send_message: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
-
-
-
-
-
-# HR invitations 
-@app.route('/interview_invitations', methods=['GET'])
-def get_interview_invitations():
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+@app.route('/get_candidate_summary', methods=['GET'])
+def get_candidate_summary():
     try:
-        # Connect to the database
-        cursor = mysql.connection.cursor()
+        # Get invitation_id and application_id from query parameters
+        invitation_id = request.args.get('invitation_id')
+        application_id = request.args.get('application_id')
 
-        # Query to retrieve interview invitations with job titles and jobID
-        cursor.execute("""
-            SELECT 
-                i.start AS start, 
-                i.end AS end, 
-                i.comment AS comment, 
-                j.title AS title,
-                i.jobID AS jobID
-            FROM 
-                interview_invitation i
-            JOIN 
-                job j ON i.jobID = j.jobID
-        """)
+        # Validate required fields
+        if not invitation_id or not application_id:
+            return jsonify({"error": "Missing required fields: 'invitation_id' and 'application_id'"}), 400
 
-        # Fetch all results
-        results = cursor.fetchall()
-        cursor.close()
+        # Query the chatbot table for the matching row
+        response = supabase.from_('chatbot').select('summary').eq('invitation_id', invitation_id).eq('application_id', application_id).execute()
 
-        # Format the results into JSON
-        invitations = [
-            {
-                "start": str(row[0]),
-                "end": str(row[1]),
-                "comment": row[2],
-                "title": row[3],
-                "jobID": row[4]  # Include jobID in the response
-            }
-            for row in results
-        ]
+        # Check if data was found
+        if not response.data:
+            return jsonify({"error": "No summary found for the provided invitation_id and application_id"}), 404
 
-        logging.info("Interview invitations retrieved successfully.")
-        return jsonify(invitations), 200
+        # Extract the summary from the response
+        summary = response.data[0]['summary']
+
+        # Return the summary in the response
+        return jsonify({"summary": summary}), 200
+
     except Exception as e:
-        logging.error(f"Error retrieving interview invitations: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+@app.route('/get_all_candidates_invitations', methods=['GET'])
+def get_all_candidates_invitations():
+    try:
+        # Query the jobapplication table to get rows with non-null invitation_id
+        job_applications_response = supabase.from_('jobapplication').select('*').not_.is_('invitation_id', 'null').execute()
+        job_applications = job_applications_response.data
+
+        if not job_applications:
+            return jsonify({"message": "No invitations found"}), 200
+
+        result = []
+
+        for application in job_applications:
+            invitation_id = application['invitation_id']
+            job_id = application['job_id']
+            status = application['status']
+            candidate_id = application['candidate_id']
+            application_id = application['application_id']
+
+            # Query the job table to get the job title
+            job_response = supabase.from_('job').select('title').eq('job_id', job_id).execute()
+            if not job_response.data:
+                continue  # Skip if job not found
+            job_title = job_response.data[0]['title']
+
+            # Query the chatbot table to get the summary using invitation_id
+            chatbot_response = supabase.from_('chatbot').select('summary').eq('invitation_id', invitation_id).execute()
+            summary = chatbot_response.data[0]['summary'] if chatbot_response.data else None
+
+            # Query the candidate table to get the user_id
+            candidate_response = supabase.from_('candidate').select('user_id').eq('candidate_id', candidate_id).execute()
+            if not candidate_response.data:
+                continue  # Skip if candidate not found
+            user_id = candidate_response.data[0]['user_id']
+
+            # Query the user table to get the candidate's name
+            user_response = supabase.from_('user').select('name').eq('user_id', user_id).execute()
+            if not user_response.data:
+                continue  # Skip if user not found
+            candidate_name = user_response.data[0]['name']
+
+            # Append the result
+            result.append({
+                "job_title": job_title,
+                "candidate_name": candidate_name,
+                "status": status,
+                "invitation_id": invitation_id,
+                "application_id": application_id
+            })
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        logging.error(f"Error in /get_all_candidates_invitations: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1004,19 +1184,24 @@ def get_interview_invitations():
 @app.route('/get_all_jobs', methods=['GET'])
 def get_all_jobs():
     try:
-        cursor = mysql.connection.cursor()
-        query = "SELECT jobID, title FROM job"
-        cursor.execute(query)
-        jobs = cursor.fetchall()
-        cursor.close()
+        # Fetch data from the Supabase 'job' table
+        response = supabase.table('job').select('job_id, title').execute()
+
+        # Check if any jobs were returned
+        if not response.data:
+            return jsonify({"error": "No jobs found"}), 404
+
+        jobs = response.data
 
         # Format response as a list of dictionaries
-        job_list = [{"jobID": job[0], "title": job[1]} for job in jobs]
+        job_list = [{"jobID": job['job_id'], "title": job['title']} for job in jobs]
 
         return jsonify(job_list), 200
+
     except Exception as e:
         logging.error(f"Error fetching jobs: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "An internal server error occurred"}), 500
+
 
 
 
@@ -1035,21 +1220,25 @@ def add_invitation():
         if not all([job_id, start, end, comment]):
             return jsonify({"error": "Missing required fields"}), 400
 
-        # Insert data into the interview_invitation table
-        cursor = mysql.connection.cursor()
-        query = """
-            INSERT INTO interview_invitation (jobID, start, end, comment)
-            VALUES (%s, %s, %s, %s)
-        """
-        cursor.execute(query, (job_id, start, end, comment))
-        mysql.connection.commit()
-        cursor.close()
+        # Insert data into the 'interview_invitation' table in Supabase
+        response = supabase.table('interview_invitation').insert({
+            "job_id": job_id,
+            "start_time": start,
+            "end_time": end,
+            "comment": comment
+        }).execute()
+
+        # Check if the insertion was successful
+        if not response.data:
+            return jsonify({"error": "Failed to add invitation"}), 500
 
         logging.info(f"New invitation added: jobID={job_id}, start={start}, end={end}")
         return jsonify({"message": "Invitation added successfully"}), 201
+
     except Exception as e:
         logging.error(f"Error adding invitation: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "An internal server error occurred"}), 500
+
 
 
 
@@ -1064,65 +1253,51 @@ def get_top_candidates():
         if not job_id:
             return jsonify({"error": "jobID is required"}), 400
 
-        # Connect to the database
-        cursor = mysql.connection.cursor()
+        # Query jobapplication table for candidates associated with the given jobID
+        job_applications_response = supabase.table('jobapplication').select(
+            'candidate_id, last_ranking, last_score'
+        ).eq('job_id', job_id).execute()
 
-        # Query to retrieve candidates and their scores
-        cursor.execute("""
-            SELECT 
-                ja.candidateID, 
-                ja.last_ranking, 
-                ja.last_score
-            FROM 
-                jobapplication ja
-            WHERE 
-                ja.jobID = %s
-        """, (job_id,))
-        job_applications = cursor.fetchall()
+        job_applications = job_applications_response.data
 
         if not job_applications:
             return jsonify({"message": "No candidates found for the given jobID"}), 404
 
-        # Build a list of candidate details
+        # Fetch candidate details
         candidates = []
-        for candidate_id, last_ranking, last_score in job_applications:
-            # Get the userID of the candidate
-            cursor.execute("""
-                SELECT userID 
-                FROM candidate 
-                WHERE candidateID = %s
-            """, (candidate_id,))
-            user = cursor.fetchone()
+        for application in job_applications:
+            candidate_id = application['candidate_id']
+            last_ranking = application.get('last_ranking')
+            last_score = application.get('last_score')
 
-            if not user:
+            # Handle missing or null values
+            last_ranking = last_ranking if last_ranking is not None else "not sorted"
+            last_score = last_score if last_score is not None else "not sorted"
+
+            # Query candidate table for user_id
+            candidate_response = supabase.table('candidate').select('user_id').eq('candidate_id', candidate_id).execute()
+            if not candidate_response.data:
                 continue
+            user_id = candidate_response.data[0]['user_id']
 
-            user_id = user[0]
-
-            # Get the name of the user
-            cursor.execute("""
-                SELECT name 
-                FROM user 
-                WHERE userID = %s
-            """, (user_id,))
-            user_name = cursor.fetchone()
-
-            if not user_name:
+            # Query user table for name
+            user_response = supabase.table('user').select('name').eq('user_id', user_id).execute()
+            if not user_response.data:
                 continue
+            user_name = user_response.data[0]['name']
 
             candidates.append({
-                "candidateID": candidate_id,  # Include candidateID
-                "name": user_name[0],
+                "candidateID": candidate_id,
+                "name": user_name,
                 "last_ranking": last_ranking,
                 "last_score": last_score
             })
 
-        cursor.close()
-
-        # Sort candidates by last_score (descending) and last_ranking (ascending)
+        # Sort candidates by last_score (descending) and last_ranking (ascending), ignore "not sorted" during sorting
         sorted_candidates = sorted(
             candidates,
-            key=lambda x: (x["last_ranking"], -x["last_score"])
+            key=lambda x: (x["last_ranking"] if x["last_ranking"] != "not sorted" else float('inf'),
+                        (x["last_score"] if x["last_score"] != "not sorted" else float('-inf')))
         )
 
         # Add the jobID at the end of the list
@@ -1133,7 +1308,8 @@ def get_top_candidates():
 
     except Exception as e:
         logging.error(f"Error retrieving top candidates: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "An internal server error occurred"}), 500
+
 
 
 
@@ -1173,7 +1349,7 @@ def get_filtered_jobs():
 
 
 
-#Search job 
+#Search job
 @app.route('/search_job', methods=['GET'])
 def search_job():
     try:
@@ -1209,8 +1385,58 @@ def search_job():
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({'error': 'An error occurred while fetching jobs'}), 500
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    #Send invite to candidate
+@app.route('/send_invite', methods=['POST'])
+def send_invitation():
+    try:
+        # Parse request data
+        data = request.json
+        logging.info(f"Received data: {data}")
+        job_id = data.get('jobID')
+        invitation_id = data.get('invitationID')
+        candidate_ids = data.get('candidateIDs')
 
+        # Validate inputs
+        if not all([job_id, invitation_id, candidate_ids]) or not isinstance(candidate_ids, list):
+            logging.error("Invalid input data")
+            return jsonify({'error': 'Invalid input data'}), 400
 
+        # Format candidate IDs for Supabase (use parentheses instead of square brackets)
+        candidate_id_filter = f"({','.join(map(str, candidate_ids))})"
+
+        # Update rows in Supabase
+        response = supabase.table('jobapplication').update({
+            'invitation_id': invitation_id,
+            'status': 'Interview invitation Sent'
+        }).filter('job_id', 'eq', job_id).filter('candidate_id', 'in', candidate_id_filter).execute()
+
+        logging.info(f"Supabase response: {response}")
+
+        # Check if the update was successful
+        if not response.data:
+            logging.error("No data returned from Supabase")
+            return jsonify({'error': 'Failed to update records'}), 500
+
+        return jsonify({'message': 'Invitations sent successfully', 'data': response.data}), 200
+
+    except Exception as e:
+        logging.error(f"Exception occurred: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 
 
@@ -1219,34 +1445,65 @@ def search_job():
 # get my appplications
 @app.route('/get_my_applications', methods=['POST'])
 def get_my_applications():
-    data = request.get_json()
-    candidate_id = data.get('candidateID')
-
-    if not candidate_id:
-        return jsonify({"error": "candidateID is required"}), 400
-
     try:
-        cursor = mysql.connection.cursor()
+        # Parse incoming data
+        data = request.json
+        print(f"Received data: {data}")  # Log the raw incoming data
 
-        # Fetch applications for the given candidateID
-        cursor.execute("""
-            SELECT jobapplication.jobID, jobapplication.status, job.title AS jobTitle,
-                   job.department, job.description, job.requiredSkills,
-                   job.experienceYears, job.education
-            FROM jobapplication
-            INNER JOIN job ON jobapplication.jobID = job.jobID
-            WHERE jobapplication.candidateID = ?
-        """, (candidate_id,))
-        applications = cursor.fetchall()
+        # Extract email from the userData
+        user_data = data.get('userData')  # Get the userData field
+        if not user_data:
+            return jsonify({"error": "userData is required"}), 400
+        
+        user_email = user_data.get('email')  # Extract the email from userData
 
-        # Convert query results to a list of dictionaries
-        results = [dict(app) for app in applications]
+        # Validate required field
+        if not user_email:
+            return jsonify({"error": "Email is required"}), 400
 
-        conn.close()
+        # Retrieve user_id from the user table using email
+        user_response = supabase.table("user").select("user_id").eq("email", user_email).execute()
+        user_data = user_response.data
+
+        if not user_data:
+            return jsonify({"error": "User not found"}), 404
+
+        user_id = user_data[0]['user_id']
+
+        # Retrieve candidate_id from the candidate table using user_id
+        candidate_response = supabase.table("candidate").select("candidate_id").eq("user_id", user_id).execute()
+        candidate_data = candidate_response.data
+
+        if not candidate_data:
+            return jsonify({"error": "Candidate not found"}), 404
+
+        candidate_id = candidate_data[0]['candidate_id']
+
+        # Retrieve job applications for the given candidate_id
+        applications_response = supabase.table("jobapplication").select("job_id", "status").eq("candidate_id", candidate_id).execute()
+        applications_data = applications_response.data
+
+        if not applications_data:
+            return jsonify({"error": "No applications found"}), 404
+
+        # Retrieve detailed job information for each application
+        results = []
+        for application in applications_data:
+            job_id = application['job_id']
+            status = application['status']
+
+            job_response = supabase.table("job").select("title", "department", "description", "required_skills", "experience_years", "education").eq("job_id", job_id).execute()
+            job_data = job_response.data
+
+            if job_data:
+                job_info = job_data[0]
+                job_info['status'] = status  # Add application status to job info
+                results.append(job_info)
+
         return jsonify(results), 200
 
     except Exception as e:
-        print(f"Error: {e}")
+        logging.error(f"Error in /get_my_applications: {str(e)}")
         return jsonify({"error": "An error occurred"}), 500
 
 
@@ -1267,10 +1524,12 @@ def extract_resume_text(file_path):
         logging.error(f"Error extracting text from PDF: {e}")
         return ""
 
+# Choose a model
+sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
 
-def sbert_sort_resumes(job_description, ):
+def sbert_sort_resumes(job_description, resumes):
     """
-    Use Sentence-BERT to rank resumes based on a jresumesob description.
+    Use Sentence-BERT to rank resumes based on a job description.
     """
     try:
         # Encode the job description
@@ -1293,107 +1552,103 @@ def sbert_sort_resumes(job_description, ):
     except Exception as e:
         logging.error(f"Error using Sentence-BERT: {e}")
         return []
-
-
+    
+    
+    
+    
+    
 @app.route('/sort_applications/<int:jobID>', methods=['POST', 'GET'])
 def sort_applications_sbert(jobID):
-    try:
-        logging.info(f"Received request to sort applications for jobID: {jobID}")
-        cursor = mysql.connection.cursor()
+    logging.info(f"Received request to sort applications for jobID: {jobID}")
 
-        # Fetch job requirements
-        cursor.execute("SELECT requiredSkills, experienceYears, education FROM Job WHERE jobID = %s", (jobID,))
-        job = cursor.fetchone()
+    # Step 1: Fetch job requirements from Supabase
+    job_response = supabase.table('job').select('required_skills', 'experience_years', 'education').eq('job_id', jobID).single().execute()
+    job = job_response.data
 
-        if not job:
-            logging.error("No job found with the given jobID.")
-            return jsonify({"error": "Job not found"}), 404
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
 
-        job_description = f"""
-        Required Skills: {job[0] if job[0] else "None"}.
-        Experience Years: {job[1] if job[1] else "None"}.
-        Education: {job[2] if job[2] else "None"}.
-        """
+    job_description = f"""
+    Required Skills: {job['required_skills'] if job.get('required_skills') else "None"}.
+    Experience Years: {job['experience_years'] if job.get('experience_years') else "None"}.
+    Education: {job['education'] if job.get('education') else "None"}.
+    """
 
-        # Fetch applications for the job
-        cursor.execute("""
-            SELECT ja.applicationID, ja.cvPath, u.name
-            FROM jobapplication ja
-            JOIN candidate c ON ja.candidateID = c.candidateID
-            JOIN user u ON c.userID = u.userID
-            WHERE ja.jobID = %s
-        """, (jobID,))
-        applications = cursor.fetchall()
-        cursor.close()
+    # Step 2: Fetch applications for the job
+    applications_response = supabase.table('jobapplication').select('application_id', 'cv_path', 'candidate_id').eq('job_id', jobID).execute()
+    
+    if not applications_response.data:
+        return jsonify({"message": "No applications found", "data": []}), 200
 
-        if not applications:
-            logging.warning("No applications found for the given jobID.")
-            return jsonify({"message": "No applications found", "data": []}), 200
+    application_data = []
+    resumes = []
 
-        resumes = []
-        application_data = []
+    # Step 3: Fetch candidate details for each application
+    for app in applications_response.data:
+        candidate_id = app['candidate_id']
+        
+        # Fetch candidate info from the 'candidate' table to get the user_id
+        candidate_response = supabase.table('candidate').select('user_id').eq('candidate_id', candidate_id).single().execute()
+        candidate = candidate_response.data
 
-        # Process resumes
-        for app in applications:
-            cleaned_path = os.path.basename(app[1]).replace("\\", "/")
-            file_url = f"{BASE_URL}{UPLOAD_FOLDER}/{cleaned_path}"
-            application_data.append({"applicationID": app[0], "name": app[2], "cvPath": file_url})
-            logging.info(f"Processing resume from URL: {file_url}")
+        if not candidate:
+            return jsonify({"error": f"Candidate {candidate_id} not found"}), 404
 
-            try:
-                # Download and read the resume file
-                response = requests.get(file_url)
-                response.raise_for_status()
+        user_id = candidate['user_id']
+        
+        # Fetch the user's name from the 'user' table using the user_id
+        user_response = supabase.table('user').select('name').eq('user_id', user_id).single().execute()
+        user = user_response.data
 
-                # Save the resume temporarily
-                temp_filename = f"temp_{app[0]}.pdf"
-                with open(temp_filename, "wb") as temp_file:
-                    temp_file.write(response.content)
+        if not user:
+            return jsonify({"error": f"User for candidate {candidate_id} not found"}), 404
+        
+        name = user['name']
 
-                # Extract text from the resume
-                text = extract_resume_text(temp_filename)
-                if text:
-                    resumes.append(text)
-                else:
-                    logging.warning(f"Resume text is empty for applicationID {app[0]}.")
+        # Prepare application data
+        cleaned_path = os.path.basename(app['cv_path']).replace("\\", "/")
+        file_url = f"{BASE_URL}{UPLOAD_FOLDER}/{cleaned_path}"
+        application_data.append({"applicationID": app['application_id'], "name": name, "cvPath": file_url})
 
-                # Remove the temporary file
-                os.remove(temp_filename)
+        # Download and read the resume file
+        response = requests.get(file_url)
+        if response.status_code != 200:
+            return jsonify({"error": f"Error downloading file {file_url}"}), 500
 
-            except Exception as e:
-                logging.error(f"Error processing file {file_url}: {e}")
+        # Save the resume temporarily
+        temp_filename = f"temp_{app['application_id']}.pdf"
+        with open(temp_filename, "wb") as temp_file:
+            temp_file.write(response.content)
 
-        if not resumes:
-            logging.error("No resumes could be read. Check the file paths or formats.")
-            return jsonify({"error": "No resumes could be read."}), 400
+        # Extract text from the resume
+        text = extract_resume_text(temp_filename)
+        if text:
+            resumes.append(text)
 
-        # Use Sentence-BERT to sort resumes
-        logging.info("Sending resumes to S-BERT for sorting...")
-        sorted_resumes = sbert_sort_resumes(job_description, resumes)
+        # Remove the temporary file
+        os.remove(temp_filename)
 
-        if not sorted_resumes:
-            logging.error("S-BERT returned no results. Check the job description or resumes.")
-            return jsonify({"error": "S-BERT returned no results."}), 500
+    if not resumes:
+        return jsonify({"error": "No resumes could be read."}), 400
 
-        # Combine sorted resumes with application data
-        response = [
-            {
-                "applicationID": application_data[i]["applicationID"],
-                "name": application_data[i]["name"],
-                "cvPath": application_data[i]["cvPath"],
-                "score": sorted_resumes[i]["score"]
-            }
-            for i in range(len(sorted_resumes))
-        ]
+    # Step 4: Use Sentence-BERT to sort resumes
+    sorted_resumes = sbert_sort_resumes(job_description, resumes)
 
-        logging.info("Successfully sorted applications.")
-        return jsonify({"sorted_applications": response}), 200
+    if not sorted_resumes:
+        return jsonify({"error": "S-BERT returned no results."}), 500
 
-    except Exception as e:
-        logging.error(f"Error sorting applications for jobID {jobID}: {e}")
-        return jsonify({"error": str(e)}), 500
+    # Step 5: Combine sorted resumes with application data
+    response = [
+        {
+            "applicationID": application_data[i]["applicationID"],
+            "name": application_data[i]["name"],
+            "cvPath": application_data[i]["cvPath"],
+            "score": sorted_resumes[i]["score"]
+        }
+        for i in range(len(sorted_resumes))
+    ]
 
-
+    return jsonify({"sorted_applications": response}), 200
 
 
 
@@ -1406,5 +1661,3 @@ def sort_applications_sbert(jobID):
 if __name__ == '__main__':
     # Enable Flask development server
     app.run(debug=True, host="0.0.0.0", port=39542)
-
-

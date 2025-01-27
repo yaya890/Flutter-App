@@ -1,3 +1,4 @@
+// HRhomeScreen.dart
 import 'package:flutter/material.dart';
 import 'jobPostings.dart'; // Import JobPostings page
 import 'interview_review_page.dart'; // Import InterviewReviewPage
@@ -73,7 +74,9 @@ class HRhomeScreen extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const JobPostings()),
+                  MaterialPageRoute(
+                    builder: (context) => JobPostings(userData: userData),
+                  ),
                 );
               },
             ),

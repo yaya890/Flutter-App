@@ -1,3 +1,4 @@
+// interview_invitation.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -10,6 +11,7 @@ class InterviewInvitation {
   final DateTime end;
   final String comment;
   final int jobID;
+  final int invitationID; // Add invitationID here
 
   InterviewInvitation({
     required this.title,
@@ -17,6 +19,7 @@ class InterviewInvitation {
     required this.end,
     required this.comment,
     required this.jobID,
+    required this.invitationID, // Initialize invitationID
   });
 
   factory InterviewInvitation.fromJson(Map<String, dynamic> json) {
@@ -26,6 +29,7 @@ class InterviewInvitation {
       end: DateTime.parse(json['end']),
       comment: json['comment'],
       jobID: json['jobID'],
+      invitationID: json['invitation_id'], // Adjusted to match JSON key
     );
   }
 }
@@ -34,8 +38,8 @@ class InterviewInvitation {
 class Candidate {
   final int candidateID;
   final String name;
-  final double lastScore;
-  final int lastRanking;
+  final String lastScore; // Store as String to handle multiple types
+  final String lastRanking; // Store as String to handle multiple types
 
   Candidate({
     required this.candidateID,
@@ -48,8 +52,8 @@ class Candidate {
     return Candidate(
       candidateID: json['candidateID'],
       name: json['name'],
-      lastScore: json['last_score'],
-      lastRanking: json['last_ranking'],
+      lastScore: json['last_score'].toString(), // Convert to String
+      lastRanking: json['last_ranking'].toString(), // Convert to String
     );
   }
 }
@@ -61,7 +65,9 @@ Future<List<InterviewInvitation>> fetchInvitations() async {
 
   if (response.statusCode == 200) {
     List<dynamic> data = jsonDecode(response.body);
-    return data.map((json) => InterviewInvitation.fromJson(json)).toList();
+    return data
+        .map((json) => InterviewInvitation.fromJson(json))
+        .toList(); // Correctly mapping JSON to model
   } else {
     throw Exception('Failed to load invitations');
   }
@@ -82,12 +88,14 @@ Future<List<Candidate>> fetchTopCandidates(int jobID) async {
 }
 
 // Send Invitation
-Future<void> sendInvitation(int jobID, List<int> candidateIDs) async {
+Future<void> sendInvitation(
+    int jobID, int invitationID, List<int> candidateIDs) async {
   final response = await http.post(
     Uri.parse('http://127.0.0.1:39542/send_invite'),
     headers: {'Content-Type': 'application/json'},
     body: jsonEncode({
       'jobID': jobID,
+      'invitationID': invitationID,
       'candidateIDs': candidateIDs,
     }),
   );
@@ -150,6 +158,8 @@ class InterviewInvitationPage extends StatelessWidget {
                                   "${invitation.end.toLocal().toString().split(' ')[0]} ${invitation.end.toLocal().toString().split(' ')[1]}",
                               comments: invitation.comment,
                               jobID: invitation.jobID,
+                              invitationID: invitation
+                                  .invitationID, // Pass invitationID here
                             ),
                             const SizedBox(height: 20),
                           ],
@@ -208,6 +218,7 @@ class InterviewCard extends StatelessWidget {
   final String end;
   final String comments;
   final int jobID;
+  final int invitationID; // Add invitationID here
 
   const InterviewCard({
     super.key,
@@ -217,6 +228,7 @@ class InterviewCard extends StatelessWidget {
     required this.end,
     required this.comments,
     required this.jobID,
+    required this.invitationID, // Initialize invitationID
   });
 
   @override
@@ -318,6 +330,7 @@ class InterviewCard extends StatelessWidget {
                     builder: (_) => CandidateSelectionDialog(
                       candidates: candidates,
                       jobID: jobID,
+                      invitationID: invitationID, // Pass invitationID here
                     ),
                   );
                 },
@@ -339,11 +352,13 @@ class InterviewCard extends StatelessWidget {
 class CandidateSelectionDialog extends StatefulWidget {
   final List<Candidate> candidates;
   final int jobID;
+  final int invitationID;
 
   const CandidateSelectionDialog({
     super.key,
     required this.candidates,
     required this.jobID,
+    required this.invitationID,
   });
 
   @override
@@ -352,62 +367,50 @@ class CandidateSelectionDialog extends StatefulWidget {
 }
 
 class _CandidateSelectionDialogState extends State<CandidateSelectionDialog> {
-  late Map<int, bool> selectedCandidatesMap;
-
-  @override
-  void initState() {
-    super.initState();
-    // Initialize the state for each candidate's checkbox
-    selectedCandidatesMap = {
-      for (var candidate in widget.candidates) candidate.candidateID: false
-    };
-  }
+  List<int> selectedCandidateIDs = [];
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text("Select Candidates"),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: widget.candidates.map((candidate) {
+      title: const Text('Select Candidates'),
+      content: SizedBox(
+        height: 300,
+        width: 300,
+        child: ListView.builder(
+          itemCount: widget.candidates.length,
+          itemBuilder: (context, index) {
+            final candidate = widget.candidates[index];
             return CheckboxListTile(
               title: Text(candidate.name),
               subtitle: Text(
-                  "Score: ${candidate.lastScore.toStringAsFixed(2)}, Ranking: ${candidate.lastRanking}"),
-              value: selectedCandidatesMap[candidate.candidateID],
-              onChanged: (checked) {
+                  'Rank: ${candidate.lastRanking}, Score: ${candidate.lastScore}'),
+              value: selectedCandidateIDs.contains(candidate.candidateID),
+              onChanged: (bool? selected) {
                 setState(() {
-                  selectedCandidatesMap[candidate.candidateID] =
-                      checked ?? false;
+                  if (selected == true) {
+                    selectedCandidateIDs.add(candidate.candidateID);
+                  } else {
+                    selectedCandidateIDs.remove(candidate.candidateID);
+                  }
                 });
               },
             );
-          }).toList(),
+          },
         ),
       ),
       actions: [
-        TextButton(
+        ElevatedButton(
           onPressed: () async {
-            // Extract selected candidates
-            final selectedCandidates = selectedCandidatesMap.entries
-                .where((entry) => entry.value)
-                .map((entry) => entry.key)
-                .toList();
-
-            if (selectedCandidates.isNotEmpty) {
-              await sendInvitation(widget.jobID, selectedCandidates);
-            }
-
-            Navigator.of(context).pop();
+            await sendInvitation(
+                widget.jobID, widget.invitationID, selectedCandidateIDs);
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Invitation sent successfully!'),
+              ),
+            );
           },
-          child: const Text("Send"),
-        ),
-        TextButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-          child: const Text("Cancel"),
+          child: const Text('Send Invitation'),
         ),
       ],
     );

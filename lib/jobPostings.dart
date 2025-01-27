@@ -1,3 +1,4 @@
+// jobPostings.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -5,7 +6,9 @@ import 'applications.dart';
 import 'newJobPosting.dart';
 
 class JobPostings extends StatefulWidget {
-  const JobPostings({super.key});
+  final Map<String, dynamic> userData; // Accepting userData as a parameter
+
+  const JobPostings({super.key, required this.userData}); // Receiving userData
 
   @override
   _JobPostingsState createState() => _JobPostingsState();
@@ -22,7 +25,8 @@ class _JobPostingsState extends State<JobPostings> {
 
   Future<List<dynamic>> fetchJobs() async {
     try {
-      final response = await http.get(Uri.parse('http://127.0.0.1:39542/get_jobs'));
+      final response =
+          await http.get(Uri.parse('http://127.0.0.1:39542/get_jobs'));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -102,7 +106,11 @@ class _JobPostingsState extends State<JobPostings> {
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const NewJobPosting()),
+              MaterialPageRoute(
+                builder: (context) => NewJobPosting(
+                    userData:
+                        widget.userData), // Passing userData to the next screen
+              ),
             );
           },
           backgroundColor: Colors.transparent,
@@ -167,14 +175,15 @@ class _JobPostingsState extends State<JobPostings> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const NewJobPosting(),
+                      builder: (context) => NewJobPosting(
+                          userData: widget.userData), // Passing userData
                     ),
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7A1EA1),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 10),
+                  backgroundColor: const Color.fromARGB(255, 240, 230, 245),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -189,14 +198,15 @@ class _JobPostingsState extends State<JobPostings> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ApplicationsPage(jobID: job['jobID']),
+                      builder: (context) =>
+                          ApplicationsPage(jobID: job['jobID']),
                     ),
                   );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF7A1EA1),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
