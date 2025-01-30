@@ -5,9 +5,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 
 class ApplicationsPage extends StatefulWidget {
-  final int jobID;
-
   const ApplicationsPage({super.key, required this.jobID});
+
+  final int jobID;
 
   @override
   _ApplicationsPageState createState() => _ApplicationsPageState();
@@ -50,7 +50,6 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
     }
   }
 
-  // Updated sortApplications function to call the sort route and handle the response
   void sortApplications() async {
     try {
       final url =
@@ -61,6 +60,10 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
         final data = jsonDecode(response.body);
         final sortedList =
             List<Map<String, dynamic>>.from(data['sorted_applications']);
+
+        // Debugging: Print sorted data
+        print("Sorted Applications: $sortedList");
+
         setState(() {
           _sortedApplications = sortedList;
         });
@@ -75,13 +78,101 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
     }
   }
 
+  Widget _buildApplicantRow({
+    required String name,
+    required String cvUrl,
+    required double score,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              const CircleAvatar(
+                radius: 20,
+                backgroundColor: Colors.white,
+                child: Icon(Icons.person, color: Colors.black),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Name: $name',
+                    style: const TextStyle(
+                      color: Colors.lightBlue,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'Score: ${score.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          ElevatedButton(
+            onPressed: () => openCV(cvUrl),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF4A148C),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            child: const Text(
+              'View CV',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF4A148C), Color(0xFF4A148C)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title: const Text(
+          'Applications',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF4A148C), Color(0xFF7A1EA1)],
+            colors: [Color(0xFF4A148C), Color(0xFF4A148C)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -89,36 +180,7 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // AppBar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.menu, color: Colors.white),
-                      onPressed: () {},
-                    ),
-                    const Text(
-                      'Applications',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.person, color: Colors.white),
-                      onPressed: () {},
-                    ),
-                  ],
-                ),
-              ),
-
-              // Divider
               const Divider(color: Colors.white, thickness: 1),
-
-              // Applicant List
               Expanded(
                 child: FutureBuilder<List<Map<String, dynamic>>>(
                   future: _applications,
@@ -160,8 +222,6 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
                   },
                 ),
               ),
-
-              // Divider and Sort Button
               const Divider(color: Colors.white, thickness: 1),
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -169,7 +229,7 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
                   onPressed: sortApplications,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
-                    foregroundColor: Colors.purple,
+                    foregroundColor: const Color(0xFF4A148C),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
                     ),
@@ -189,68 +249,6 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildApplicantRow(
-      {required String name, required String cvUrl, required double score}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Profile Icon
-          Row(
-            children: [
-              const CircleAvatar(
-                radius: 20,
-                backgroundColor: Colors.white,
-                child: Icon(Icons.person, color: Colors.black),
-              ),
-              const SizedBox(width: 10),
-
-              // Name Placeholder
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Name: $name',
-                    style: const TextStyle(
-                      color: Colors.lightBlue,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Score: ${score.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          // View CV Button
-          ElevatedButton(
-            onPressed: () => openCV(cvUrl),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.purple,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            child: const Text(
-              'View CV',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
       ),
     );
   }

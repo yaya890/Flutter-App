@@ -62,40 +62,45 @@ class _UploadCVPageState extends State<UploadCVPage> {
         }
 
         var response = await request.send();
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(); // Close loading spinner
+
+        var responseBody = await response.stream.bytesToString();
+        var responseData = jsonDecode(responseBody);
+
+        String message = response.statusCode == 201
+            ? "CV uploaded successfully: ${responseData['file_path']}"
+            : "Failed to upload CV: ${responseData['error']}";
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(response.statusCode == 201 ? "Success" : "Error"),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+        );
 
         if (response.statusCode == 201) {
-          var responseBody = await response.stream.bytesToString();
-          var responseData = jsonDecode(responseBody);
           uploadedFilePath = responseData['file_path'];
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("CV uploaded successfully")),
-          );
-        } else {
-          var responseBody = await response.stream.bytesToString();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Failed to upload CV: $responseBody")),
-          );
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("No file selected.")),
-        );
+        _showMessageDialog(
+            "No File Selected", "Please select a PDF file to upload.");
       }
     } catch (e) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("An error occurred: $e")),
-      );
+      _showMessageDialog("Error", "An error occurred: $e");
     }
   }
 
   Future<void> _submitApplication(BuildContext context) async {
     if (uploadedFilePath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please upload a CV first.")),
-      );
+      _showMessageDialog("Missing CV", "Please upload a CV first.");
       return;
     }
 
@@ -113,29 +118,42 @@ class _UploadCVPageState extends State<UploadCVPage> {
       );
 
       if (response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Application submitted successfully")),
-        );
-
-        // Navigate back to the AvailableJobs page
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-              builder: (context) => AvailableJobs(
-                    userData: widget.userData, // Pass userData
-                  )),
-        );
+        _showMessageDialog("Success", "Application submitted successfully",
+            onConfirm: () {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+                builder: (context) => AvailableJobs(
+                      userData: widget.userData,
+                    )),
+          );
+        });
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Failed to submit application: ${response.body}"),
-          ),
-        );
+        _showMessageDialog(
+            "Error", "Failed to submit application: ${response.body}");
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("An error occurred: $e")),
-      );
+      _showMessageDialog("Error", "An error occurred: $e");
     }
+  }
+
+  void _showMessageDialog(String title, String message,
+      {VoidCallback? onConfirm}) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              if (onConfirm != null) onConfirm();
+            },
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -145,7 +163,6 @@ class _UploadCVPageState extends State<UploadCVPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Background
             Positioned.fill(
               child: CustomPaint(
                 painter: BackgroundPainter(),
@@ -154,7 +171,6 @@ class _UploadCVPageState extends State<UploadCVPage> {
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Title
                 const Text(
                   'Application',
                   style: TextStyle(
@@ -170,8 +186,6 @@ class _UploadCVPageState extends State<UploadCVPage> {
                   color: Colors.white.withOpacity(0.7),
                 ),
                 const SizedBox(height: 40),
-
-                // Upload Icon
                 CircleAvatar(
                   radius: 60,
                   backgroundColor: Colors.white.withOpacity(0.2),
@@ -182,8 +196,6 @@ class _UploadCVPageState extends State<UploadCVPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // Instructional Text
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 24.0),
                   child: Text(
@@ -197,8 +209,6 @@ class _UploadCVPageState extends State<UploadCVPage> {
                   ),
                 ),
                 const SizedBox(height: 40),
-
-                // Buttons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -239,7 +249,6 @@ class _UploadCVPageState extends State<UploadCVPage> {
                 ),
               ],
             ),
-            // Footer
             Positioned(
               bottom: 20,
               left: 0,

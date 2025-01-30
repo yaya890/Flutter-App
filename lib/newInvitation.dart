@@ -1,3 +1,4 @@
+// newInvitation.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -14,7 +15,10 @@ class NewInvitation extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            Navigator.pop(context);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const JobPostings()),
+            );
           },
         ),
         centerTitle: true,
@@ -31,6 +35,22 @@ class NewInvitation extends StatelessWidget {
   }
 }
 
+class JobPostings extends StatelessWidget {
+  const JobPostings({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Job Postings'),
+      ),
+      body: const Center(
+        child: Text('This is the Job Postings screen'),
+      ),
+    );
+  }
+}
+
 class InvitationForm extends StatefulWidget {
   const InvitationForm({super.key});
 
@@ -39,14 +59,9 @@ class InvitationForm extends StatefulWidget {
 }
 
 class _InvitationFormState extends State<InvitationForm> {
-  // Controllers for comment field
   final commentController = TextEditingController();
-
-  // Dropdown state
   String? selectedJobID;
   List<Map<String, dynamic>> jobList = [];
-
-  // Date and Time state
   DateTime? startDateTime;
   DateTime? endDateTime;
 
@@ -56,7 +71,6 @@ class _InvitationFormState extends State<InvitationForm> {
     fetchJobs();
   }
 
-  // Fetch jobs from the backend
   Future<void> fetchJobs() async {
     try {
       final response =
@@ -80,7 +94,6 @@ class _InvitationFormState extends State<InvitationForm> {
     }
   }
 
-  // Submit the invitation
   Future<void> submitInvitation() async {
     if (selectedJobID == null || startDateTime == null || endDateTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -128,7 +141,6 @@ class _InvitationFormState extends State<InvitationForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Dropdown for Job Selection
             const Text(
               'Select Job',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -156,10 +168,7 @@ class _InvitationFormState extends State<InvitationForm> {
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // Start DateTime Field
             const Text(
               'Start Date and Time',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -179,10 +188,7 @@ class _InvitationFormState extends State<InvitationForm> {
                 }
               },
             ),
-
             const SizedBox(height: 20),
-
-            // End DateTime Field
             const Text(
               'End Date and Time',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -202,20 +208,14 @@ class _InvitationFormState extends State<InvitationForm> {
                 }
               },
             ),
-
             const SizedBox(height: 20),
-
-            // Comment Field
             const Text(
               'Comment',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             _buildTextField(controller: commentController, maxLines: 4),
-
             const SizedBox(height: 30),
-
-            // Submit Button
             Center(
               child: Container(
                 width: MediaQuery.of(context).size.width * 0.6,

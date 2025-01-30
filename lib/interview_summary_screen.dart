@@ -19,83 +19,98 @@ class InterviewSummaryScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('$interviewTitle Summary'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Display Candidate Name
-            Text(
-              candidateName,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.purple, Colors.white],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Display Candidate Name
+              Text(
+                candidateName,
+                style: const TextStyle(
+                  fontSize: 30,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
-            // Display Interview Title
-            Text(
-              interviewTitle,
-              style: const TextStyle(
-                fontSize: 18,
-                color: Colors.grey,
+              // Display Interview Title
+              Text(
+                interviewTitle,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Color.fromARGB(255, 255, 255, 255),
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // Display Summary
-            Expanded(
-              child: SingleChildScrollView(
-                child: Text(
-                  summary,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
+              // Display Summary
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Text(
+                    summary,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // Buttons Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                // Reject Button
-                ElevatedButton(
-                  onPressed: () {
-                    // Add Reject logic here
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 32, vertical: 16),
+              // Buttons Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Reject Button
+                  ElevatedButton(
+                    onPressed: () {
+                      // Add Reject logic here
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 16),
+                    ),
+                    child: const Text(
+                      'Reject',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white, // Change text color to white
+                      ),
+                    ),
                   ),
-                  child: const Text(
-                    'Reject',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
 
-                // Schedule 2nd Interview Button
-                ElevatedButton(
-                  onPressed: () {
-                    // Add Schedule 2nd Interview logic here
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 32, vertical: 16),
+                  // Schedule 2nd Interview Button
+                  ElevatedButton(
+                    onPressed: () {
+                      // Add Schedule 2nd Interview logic here
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 16),
+                    ),
+                    child: const Text(
+                      'Schedule 2nd Interview',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white, // Change text color to white
+                      ),
+                    ),
                   ),
-                  child: const Text(
-                    'Schedule 2nd Interview',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

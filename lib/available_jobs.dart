@@ -15,10 +15,12 @@ class AvailableJobs extends StatefulWidget {
 }
 
 class _AvailableJobsState extends State<AvailableJobs> {
-  List<dynamic> _filteredJobs = [];
-  late Future<List<dynamic>> _jobs;
+  List<dynamic> _jobs = []; // List to store all jobs
+  List<dynamic> _filteredJobs = []; // List to store filtered jobs
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
+  bool _isLoading = true; // Track loading state
+  String? _errorMessage; // Track error messages
 
   @override
   void dispose() {
@@ -29,18 +31,47 @@ class _AvailableJobsState extends State<AvailableJobs> {
   @override
   void initState() {
     super.initState();
-    _jobs = fetchJobs(); // Fetch jobs from the database when the page loads
+    _fetchJobs(); // Fetch jobs from the database when the page loads
   }
 
   // Function to fetch jobs from the database
-  Future<List<dynamic>> fetchJobs() async {
-    final url = Uri.parse("http://127.0.0.1:39542/get_filtered_jobs");
-    final response = await http.get(url);
+  Future<void> _fetchJobs() async {
+    try {
+      final url = Uri.parse("http://127.0.0.1:39542/get_filtered_jobs");
+      final response = await http.get(url);
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to load jobs');
+      if (response.statusCode == 200) {
+        setState(() {
+          _jobs = jsonDecode(response.body);
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load jobs');
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = "Failed to load jobs: $e";
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Function to search jobs by title
+  Future<void> _searchJobs(String query) async {
+    try {
+      final url = Uri.parse("http://127.0.0.1:39542/search_job?title=$query");
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _filteredJobs = jsonDecode(response.body);
+          _searchQuery = query;
+        });
+      } else {
+        throw Exception('Failed to search jobs');
+      }
+    } catch (e) {
+      _showErrorDialog(context, "Failed to search jobs: $e");
     }
   }
 
@@ -80,17 +111,34 @@ class _AvailableJobsState extends State<AvailableJobs> {
     );
   }
 
+  // Function to display an error dialog
+  void _showErrorDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Error"),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildJobCard(Map<String, dynamic> job, BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.purple.shade100, Colors.purple.shade300],
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.grey.withOpacity(0.2),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -104,6 +152,7 @@ class _AvailableJobsState extends State<AvailableJobs> {
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
+              color: Colors.deepPurple,
             ),
           ),
           const SizedBox(height: 8),
@@ -118,7 +167,6 @@ class _AvailableJobsState extends State<AvailableJobs> {
               Flexible(
                 child: ElevatedButton(
                   onPressed: () {
-                    // Pass both userData and jobID to UploadCVPage
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -130,9 +178,13 @@ class _AvailableJobsState extends State<AvailableJobs> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple,
+                    backgroundColor: Colors.deepPurple,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: const Text("Apply"),
+                  child: const Text("Apply",
+                      style: TextStyle(color: Colors.white)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -141,7 +193,8 @@ class _AvailableJobsState extends State<AvailableJobs> {
                   onPressed: () {
                     _showJobDetails(context, job);
                   },
-                  child: const Text("View Details"),
+                  child: const Text("View Details",
+                      style: TextStyle(color: Colors.deepPurple)),
                 ),
               ),
             ],
@@ -156,7 +209,7 @@ class _AvailableJobsState extends State<AvailableJobs> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
             Navigator.pushReplacement(
               context,
@@ -169,14 +222,20 @@ class _AvailableJobsState extends State<AvailableJobs> {
             );
           },
         ),
-        title: const Text("Available Jobs"),
-        backgroundColor: Colors.purple,
+        title: const Text(
+          "Available Jobs",
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.deepPurple,
         elevation: 0,
       ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.purple, Colors.purpleAccent],
+            colors: [
+              Colors.deepPurple,
+              Colors.purpleAccent,
+            ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -191,11 +250,11 @@ class _AvailableJobsState extends State<AvailableJobs> {
                 decoration: InputDecoration(
                   hintText: "Search jobs by title...",
                   prefixIcon: IconButton(
-                    icon: const Icon(Icons.search),
+                    icon: const Icon(Icons.search, color: Colors.deepPurple),
                     onPressed: () async {
                       final query = _searchController.text.trim();
                       if (query.isNotEmpty) {
-                        setState(() {}); // Update the state with filtered jobs
+                        await _searchJobs(query);
                       }
                     },
                   ),
@@ -209,36 +268,40 @@ class _AvailableJobsState extends State<AvailableJobs> {
               ),
             ),
             Expanded(
-              child: FutureBuilder<List<dynamic>>(
-                future: _jobs,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('No open jobs available.'));
-                  }
-
-                  final jobs =
-                      _searchQuery.isNotEmpty ? _filteredJobs : snapshot.data!;
-                  if (jobs.isEmpty) {
-                    return const Center(
-                        child: Text('No jobs match your search.'));
-                  }
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16.0),
-                    itemCount: jobs.length,
-                    itemBuilder: (context, index) {
-                      final job = jobs[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16.0),
-                        child: _buildJobCard(job, context),
-                      );
-                    },
-                  );
-                },
-              ),
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    )
+                  : _errorMessage != null
+                      ? Center(
+                          child: Text(
+                            _errorMessage!,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        )
+                      : (_searchQuery.isNotEmpty ? _filteredJobs : _jobs)
+                              .isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No jobs available.',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(16.0),
+                              itemCount: _searchQuery.isNotEmpty
+                                  ? _filteredJobs.length
+                                  : _jobs.length,
+                              itemBuilder: (context, index) {
+                                final job = _searchQuery.isNotEmpty
+                                    ? _filteredJobs[index]
+                                    : _jobs[index];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 16.0),
+                                  child: _buildJobCard(job, context),
+                                );
+                              },
+                            ),
             ),
           ],
         ),

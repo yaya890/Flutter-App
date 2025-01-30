@@ -48,6 +48,8 @@ import bcrypt
 
 from flask_bcrypt import Bcrypt
 
+from thefuzz import process
+
 
 
 
@@ -98,12 +100,12 @@ with open('secret_key.txt', 'r') as f:
 
 
 #open ai key
-openai.api_key = "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"
+openai.api_key = "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"
 
 
 # Initialize Flask app
 app = Flask(__name__)
-bcrypt = Bcrypt(app) 
+bcrypt = Bcrypt(app)
 # Hash a password
 password = "mySecurePassword"
 hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
@@ -261,12 +263,13 @@ def verify():
         return jsonify({'error': str(e)}), 500
 
 
-#Store new user 
+#Store new user
 @app.route('/store_new_user', methods=['POST'])
 def store_new_user():
     try:
         # Parse the JSON request
         data = request.get_json()
+        print("Received data:", data)  # Log the received data
         name = data.get('name')
         email = data.get('email')
         password = data.get('password')
@@ -274,10 +277,12 @@ def store_new_user():
 
         # Validate input
         if not name or not email or not password or not role:
+            print("Validation failed: Missing fields")  # Log validation failure
             return jsonify({'error': 'All fields are required.'}), 400
 
         # Hash the password
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        print("Hashed password:", hashed_password)  # Log the hashed password
 
         # Insert user into the Supabase database
         response = supabase.table('user').insert({
@@ -287,13 +292,17 @@ def store_new_user():
             'role': role
         }).execute()
 
+        print("Supabase response:", response)  # Log the Supabase response
+
         # Check response status
         if response.status_code == 201:
             return jsonify({'message': 'User stored successfully.'}), 201
         else:
+            print("Failed to store user. Supabase status code:", response.status_code)  # Log failure
             return jsonify({'error': 'Failed to store user.'}), 500
 
     except Exception as e:
+        print("Exception occurred:", str(e))  # Log the exception
         return jsonify({'error': str(e)}), 500
 
 
@@ -427,15 +436,15 @@ def add_job():
 @app.route('/get_open_jobs', methods=['GET'])
 def get_open_jobs():
     try:
-        cursor = mysql.connection.cursor()
-        cursor.execute("""
-            SELECT jobID, title, description FROM Job WHERE status = 'open'
-        """)
-        jobs = cursor.fetchall()
-        cursor.close()
+        # Query the 'Job' table in Supabase
+        response = supabase.table("Job").select("jobID, title, description").eq("status", "open").execute()
+
+        # Extract data from the response
+        jobs = response.data
 
         # Convert results to a list of dictionaries
-        result = [{"jobID": job[0], "title": job[1], "description": job[2]} for job in jobs]
+        result = [{"jobID": job["jobID"], "title": job["title"], "description": job["description"]} for job in jobs]
+
         logging.info("Open jobs retrieved successfully.")
         return jsonify(result), 200
     except Exception as e:
@@ -473,8 +482,13 @@ def get_job_details(job_id):
 
 
 # /upload_cv Endpoint
+
+
 @app.route('/upload_cv', methods=['POST'])
 def upload_cv():
+    MAX_FILE_SIZE = 200 * 1024  # 200 KB in bytes
+    ALLOWED_EXTENSIONS = {'pdf'}
+
     if 'file' not in request.files and not request.data:
         logging.error("No file part or data in the request.")
         return jsonify({"error": "No file part or data in the request"}), 400
@@ -487,9 +501,19 @@ def upload_cv():
                 logging.error("No selected file.")
                 return jsonify({"error": "No selected file"}), 400
 
+            # Validate file type
             if not file.filename.endswith('.pdf'):
                 logging.error("Invalid file type. Only PDFs are allowed.")
                 return jsonify({"error": "Invalid file type. Only PDFs are allowed."}), 400
+
+            # Validate file size
+            file.seek(0, os.SEEK_END)  # Move cursor to the end of the file
+            file_size = file.tell()  # Get file size in bytes
+            file.seek(0)  # Reset cursor to the beginning of the file
+
+            if file_size > MAX_FILE_SIZE:
+                logging.error(f"File size exceeds the limit of {MAX_FILE_SIZE} bytes.")
+                return jsonify({"error": f"File size exceeds the limit of {MAX_FILE_SIZE} bytes."}), 400
 
             # Save file
             filename = secure_filename(file.filename)
@@ -502,6 +526,12 @@ def upload_cv():
                 logging.error("Invalid file type. Only PDFs are allowed.")
                 return jsonify({"error": "Invalid file type. Only PDFs are allowed."}), 400
 
+            # Validate file size
+            file_size = len(request.data)
+            if file_size > MAX_FILE_SIZE:
+                logging.error(f"File size exceeds the limit of {MAX_FILE_SIZE} bytes.")
+                return jsonify({"error": f"File size exceeds the limit of {MAX_FILE_SIZE} bytes."}), 400
+
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             with open(filepath, 'wb') as f:
                 f.write(request.data)
@@ -511,7 +541,7 @@ def upload_cv():
 
     except Exception as e:
         logging.error(f"Error uploading CV: {str(e)}")
-        return jsonify({"error": str(e)}), 500 
+        return jsonify({"error": str(e)}), 500
 
 
 # /save_application Endpoint
@@ -762,33 +792,40 @@ def get_interview_invitations():
     result = []
 
     for invitation in invitations:
-        # Fetch the job_id from the invitation
         job_id = invitation.get('job_id')
         
-        if job_id is None:  # Check if job_id is None
+        if job_id is None:  # Skip invitations with missing job_id
             print(f"Skipping invitation with missing job_id: {invitation['invitation_id']}")
-            continue  # Skip invitations with missing job_id
+            continue
         
-        # Fetch the job from the job table using job_id
+        # Fetch the job title using job_id
         job = supabase.table('job').select('title').eq('job_id', job_id).execute().data
         
-        # Debugging logs to check what's being returned
-        print(f"job_id: {job_id}, job: {job}")  # Log job_id and job data
-
-        if job:  # If job exists
+        if job:
+            # Fetch the candidate name using candidate_id from the candidate table
+            candidate_id = invitation['candidate_id']  # Assuming candidate_id is in the invitation table
+            candidate = supabase.table('candidate').select('user_id').eq('candidate_id', candidate_id).execute().data
+            candidate_name = None
+            if candidate:
+                # Fetch the user name from the user table
+                user_id = candidate[0]['user_id']
+                user_data = supabase.table('user').select('name').eq('user_id', user_id).execute().data
+                if user_data:
+                    candidate_name = user_data[0]['name']
+            
             result.append({
                 "invitation_id": invitation['invitation_id'],
                 "jobID": job_id,
-                "title": job[0]['title'],  # Get the title of the job
+                "title": job[0]['title'],
                 "start": invitation['start_time'],
                 "end": invitation['end_time'],
+                "candidate_name": candidate_name,
                 "comment": invitation['comment']
             })
         else:
-            print(f"Job not found for job_id: {job_id}")  # Log if job is not found
+            print(f"Job not found for job_id: {job_id}")
 
     return jsonify(result)
-
 
 
 
@@ -1348,8 +1385,6 @@ def get_filtered_jobs():
 
 
 
-
-#Search job
 @app.route('/search_job', methods=['GET'])
 def search_job():
     try:
@@ -1361,25 +1396,34 @@ def search_job():
         # Query the database to get all job titles
         response = supabase.table('job') \
             .select('*') \
+            .ilike('title', f'%{title_query}%') \
             .execute()
 
         # Extract the data from the response
         jobs = response.data
 
-        # Perform matching to find the closest matches
-        matching_jobs = [
-            {
-                "jobID": job['job_id'],
-                "title": job['title'],
-                "department": job['department'],
-                "requiredSkills": job['required_skills'],
-                "experienceYears": job['experience_years'],
-                "education": job['education'],
-                "description": job['description'],
-            }
-            for job in jobs
-            if title_query.lower() in job['title'].lower() or title_query.lower() in job['title'].lower()[:len(title_query)//2]
-        ]
+        # Extract job titles for fuzzy matching
+        job_titles = [job['title'] for job in jobs]
+
+        # Use fuzzy matching to find the closest matches
+        matches = process.extract(title_query, job_titles, limit=5)
+        matches = [match for match in matches if match[1] >= 70]  # Filter by threshold
+
+        # Filter jobs based on the closest matches
+        matching_jobs = []
+        for match in matches:
+            matched_title = match[0]
+            matched_job = next((job for job in jobs if job['title'] == matched_title), None)
+            if matched_job:
+                matching_jobs.append({
+                    "jobID": matched_job['job_id'],
+                    "title": matched_job['title'],
+                    "department": matched_job['department'],
+                    "requiredSkills": matched_job['required_skills'],
+                    "experienceYears": matched_job['experience_years'],
+                    "education": matched_job['education'],
+                    "description": matched_job['description'],
+                })
 
         return jsonify(matching_jobs)
     except Exception as e:
@@ -1649,12 +1693,6 @@ def sort_applications_sbert(jobID):
     ]
 
     return jsonify({"sorted_applications": response}), 200
-
-
-
-
-
-
 
 
 
