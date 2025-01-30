@@ -100,7 +100,7 @@ with open('secret_key.txt', 'r') as f:
 
 
 #open ai key
-openai.api_key = "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"
+openai.api_key="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"
 
 
 # Initialize Flask app
@@ -327,6 +327,47 @@ def write_role():
         return jsonify({"message": "Role written successfully"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+
+@app.route('/jobs', methods=['GET'])
+def jobs():
+    try:
+        # Query the 'job' table in Supabase to retrieve title and status
+        response = supabase.table('job').select('title, status').execute()
+
+        # Extract data from the response
+        jobs = response.data
+
+        # Check if any jobs were found
+        if not jobs:
+            return jsonify({"message": "No jobs found"}), 404
+
+        # Return the jobs as a JSON response
+        return jsonify(jobs), 200
+
+    except Exception as e:
+        logging.error(f"Error retrieving jobs: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -792,42 +833,32 @@ def get_interview_invitations():
     result = []
 
     for invitation in invitations:
+        # Fetch the job_id from the invitation
         job_id = invitation.get('job_id')
         
-        if job_id is None:  # Skip invitations with missing job_id
+        if job_id is None:  # Check if job_id is None
             print(f"Skipping invitation with missing job_id: {invitation['invitation_id']}")
-            continue
+            continue  # Skip invitations with missing job_id
         
-        # Fetch the job title using job_id
+        # Fetch the job from the job table using job_id
         job = supabase.table('job').select('title').eq('job_id', job_id).execute().data
         
-        if job:
-            # Fetch the candidate name using candidate_id from the candidate table
-            candidate_id = invitation['candidate_id']  # Assuming candidate_id is in the invitation table
-            candidate = supabase.table('candidate').select('user_id').eq('candidate_id', candidate_id).execute().data
-            candidate_name = None
-            if candidate:
-                # Fetch the user name from the user table
-                user_id = candidate[0]['user_id']
-                user_data = supabase.table('user').select('name').eq('user_id', user_id).execute().data
-                if user_data:
-                    candidate_name = user_data[0]['name']
-            
+        # Debugging logs to check what's being returned
+        print(f"job_id: {job_id}, job: {job}")  # Log job_id and job data
+
+        if job:  # If job exists
             result.append({
                 "invitation_id": invitation['invitation_id'],
                 "jobID": job_id,
-                "title": job[0]['title'],
+                "title": job[0]['title'],  # Get the title of the job
                 "start": invitation['start_time'],
                 "end": invitation['end_time'],
-                "candidate_name": candidate_name,
                 "comment": invitation['comment']
             })
         else:
-            print(f"Job not found for job_id: {job_id}")
+            print(f"Job not found for job_id: {job_id}")  # Log if job is not found
 
     return jsonify(result)
-
-
 
 
 
@@ -1142,13 +1173,6 @@ def get_candidate_summary():
     
     
     
-    
-    
-    
-    
-    
-    
-    
 @app.route('/get_all_candidates_invitations', methods=['GET'])
 def get_all_candidates_invitations():
     try:
@@ -1204,14 +1228,6 @@ def get_all_candidates_invitations():
     except Exception as e:
         logging.error(f"Error in /get_all_candidates_invitations: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
-
-
-
-
-
-
-
 
 
 
@@ -1692,8 +1708,18 @@ def sort_applications_sbert(jobID):
         for i in range(len(sorted_resumes))
     ]
 
-    return jsonify({"sorted_applications": response}), 200
+    # Step 6: Update the jobapplication table with the scores
+    for app in response:
+        application_id = app["applicationID"]
+        score = app["score"]
+        
+        # Update the last_score column in the jobapplication table
+        update_response = supabase.table('jobapplication').update({"last_score": score}).eq("application_id", application_id).execute()
+        
+        if not update_response.data:
+            logging.error(f"Failed to update score for application {application_id}")
 
+    return jsonify({"sorted_applications": response}), 200
 
 
 if __name__ == '__main__':

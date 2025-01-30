@@ -6,7 +6,7 @@ import 'dart:convert';
 import 'available_jobs.dart';
 
 class UploadCVPage extends StatefulWidget {
-  UploadCVPage({super.key, required this.jobID, required this.userData});
+  const UploadCVPage({super.key, required this.jobID, required this.userData});
 
   final int jobID;
   final Map<String, dynamic> userData;

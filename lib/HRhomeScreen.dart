@@ -1,16 +1,89 @@
-// HRhomeScreen.dart
 import 'package:flutter/material.dart';
+import 'dart:convert'; // For jsonDecode
+import 'package:http/http.dart' as http; // For HTTP requests
+
 import 'jobPostings.dart'; // Import JobPostings page
 import 'interview_review_page.dart'; // Import InterviewReviewPage
 
-class HRhomeScreen extends StatelessWidget {
+class HRhomeScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
 
-  // Constructor to accept user data
   const HRhomeScreen({super.key, required this.userData});
 
   @override
+  State<HRhomeScreen> createState() => _HRhomeScreenState();
+}
+
+class _HRhomeScreenState extends State<HRhomeScreen> {
+  List<dynamic> jobs = [];
+  List<dynamic> interviews = [];
+  bool isLoadingJobs = false;
+  bool isLoadingInterviews = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchJobs();
+    _fetchInterviews();
+  }
+
+  Future<void> _fetchJobs() async {
+    setState(() {
+      isLoadingJobs = true;
+    });
+
+    try {
+      // Replace with your real endpoint or base URL
+      final response = await http.get(Uri.parse('http://127.0.0.1:39542/jobs'));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          jobs = data;
+        });
+      } else {
+        debugPrint('Error fetching jobs: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Exception while fetching jobs: $e');
+    } finally {
+      setState(() {
+        isLoadingJobs = false;
+      });
+    }
+  }
+
+  Future<void> _fetchInterviews() async {
+    setState(() {
+      isLoadingInterviews = true;
+    });
+
+    try {
+      // Replace with your real endpoint or base URL
+      final response = await http.get(
+          Uri.parse('http://127.0.0.1:39542/get_all_candidates_invitations'));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          interviews = data;
+        });
+      } else {
+        debugPrint('Error fetching interviews: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Exception while fetching interviews: $e');
+    } finally {
+      setState(() {
+        isLoadingInterviews = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final userData = widget.userData;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -23,7 +96,7 @@ class HRhomeScreen extends StatelessWidget {
             },
           ),
         ),
-        centerTitle: true, // Center the title
+        centerTitle: true,
         title: const Text(
           'Home',
           style: TextStyle(
@@ -32,13 +105,7 @@ class HRhomeScreen extends StatelessWidget {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.black),
-            onPressed: () {
-              // Profile functionality placeholder
-              debugPrint("User Data: $userData"); // For debugging purposes
-            },
-          ),
+          // Removed the profile (person) icon here
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.black),
             onPressed: () {
@@ -52,13 +119,12 @@ class HRhomeScreen extends StatelessWidget {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            DrawerHeader(
+            const DrawerHeader(
               decoration: BoxDecoration(
                 color: Color.fromARGB(255, 125, 25, 155),
               ),
               child: Center(
-                // Centers the text
-                child: const Text(
+                child: Text(
                   'Menu',
                   style: TextStyle(
                     color: Colors.white,
@@ -118,7 +184,7 @@ class HRhomeScreen extends StatelessWidget {
                         style: TextStyle(fontSize: 18, color: Colors.black54),
                       ),
                       Text(
-                        'Name: ${userData['name']}', // Dynamically display the name
+                        'Name: ${userData['name']}',
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -131,44 +197,18 @@ class HRhomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // Active Job Posts Section
-              _buildSectionHeader('Active Job Posts', 'See all Posts'),
+              // Open Job Posts Section
+              _buildSectionHeader('Open Job Posts'), // Removed "See all Posts"
               const SizedBox(height: 10),
-              SizedBox(
-                height: 200,
-                child: Scrollbar(
-                  thumbVisibility: true, // Ensures the scrollbar is visible
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: 5, // Placeholder count
-                    itemBuilder: (context, index) => _buildJobCard(),
-                  ),
-                ),
-              ),
+              _buildJobsList(),
+
               const SizedBox(height: 20),
 
               // Finished Interviews Section
-              _buildSectionHeader('Finished Interviews', 'See all Interviews'),
+              _buildSectionHeader(
+                  'Finished Interviews'), // Removed "See all Interviews"
               const SizedBox(height: 10),
-              SizedBox(
-                height: 300, // Ensure proper scrolling height
-                child: ListView.builder(
-                  itemCount: 5, // Placeholder count
-                  itemBuilder: (context, index) => _buildInterviewRow(),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // KPIs Overview Section
-              _buildSectionHeader('KPIs Overview', 'See all KPIs'),
-              const SizedBox(height: 10),
-              _buildKPISection(),
-              const SizedBox(height: 20),
-
-              // Performance Trends Section
-              _buildSectionHeader('Performance Trends', 'See all'),
-              const SizedBox(height: 10),
-              _buildChartPlaceholder(),
+              _buildFinishedInterviewsList(),
             ],
           ),
         ),
@@ -176,7 +216,7 @@ class HRhomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(String title, String action) {
+  Widget _buildSectionHeader(String title) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -188,20 +228,42 @@ class HRhomeScreen extends StatelessWidget {
             color: Colors.black87,
           ),
         ),
-        TextButton(
-          onPressed: () {
-            // Action button functionality placeholder
-          },
-          child: Text(
-            action,
-            style: const TextStyle(color: Colors.blue),
-          ),
-        ),
       ],
     );
   }
 
-  Widget _buildJobCard() {
+  Widget _buildJobsList() {
+    if (isLoadingJobs) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (jobs.isEmpty) {
+      return const Center(child: Text("No jobs found."));
+    }
+
+    final openJobs = jobs.where((job) => job['status'] == 'open').toList();
+
+    if (openJobs.isEmpty) {
+      return const Center(child: Text("No open jobs available."));
+    }
+
+    return SizedBox(
+      height: 200,
+      child: Scrollbar(
+        thumbVisibility: true,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: openJobs.length,
+          itemBuilder: (context, index) {
+            final job = openJobs[index];
+            return _buildJobCard(job);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJobCard(dynamic job) {
     return Container(
       width: 150,
       margin: const EdgeInsets.only(right: 10),
@@ -222,49 +284,60 @@ class HRhomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Job Title: ', // Placeholder
-            style: TextStyle(
+          Text(
+            'Job Title: ${job['title'] ?? 'N/A'}',
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
               color: Color(0xFF4A148C),
             ),
           ),
-          const Text('Company: ', style: TextStyle(color: Colors.black54)),
-          const Text('Location: ', style: TextStyle(color: Colors.black54)),
+          Text(
+            'Status: ${job['status'] ?? 'N/A'}',
+            style: const TextStyle(color: Colors.black54),
+          ),
           const Spacer(),
-          const Text('Days Ago: ', style: TextStyle(color: Colors.black54)),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: ElevatedButton(
-                  onPressed: null, // Placeholder
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7A1EA1), // Purple button
-                  ),
-                  child: const Text('View Applications'),
-                ),
-              ),
-              const SizedBox(width: 5),
-              Flexible(
-                child: ElevatedButton(
-                  onPressed: null, // Placeholder
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7A1EA1), // Purple button
-                  ),
-                  child: const Text('Edit'),
-                ),
-              ),
-            ],
+            children: [],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInterviewRow() {
+  Widget _buildFinishedInterviewsList() {
+    if (isLoadingInterviews) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (interviews.isEmpty) {
+      return const Center(child: Text("No interviews found."));
+    }
+
+    // Filter interviews to only show those with status == 'Interview Done'
+    final finishedInterviews = interviews
+        .where((interview) => interview['status'] == 'Interview Done')
+        .toList();
+
+    if (finishedInterviews.isEmpty) {
+      return const Center(child: Text("No finished interviews available."));
+    }
+
+    return SizedBox(
+      height: 300,
+      child: ListView.builder(
+        itemCount: finishedInterviews.length,
+        itemBuilder: (context, index) {
+          final interview = finishedInterviews[index];
+          return _buildInterviewRow(interview);
+        },
+      ),
+    );
+  }
+
+  Widget _buildInterviewRow(dynamic interview) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
@@ -275,71 +348,28 @@ class HRhomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Interview Title: ',
-              style: TextStyle(fontWeight: FontWeight.bold)),
-          const Text('Candidate Name: '),
-          const Text('Interview Status: '),
-          const Text('Outcome: '),
+          Text(
+            'Job Title: ${interview['job_title'] ?? 'N/A'}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Text('Candidate Name: ${interview['candidate_name'] ?? 'N/A'}'),
+          Text('Status: ${interview['status'] ?? 'N/A'}'),
           Align(
             alignment: Alignment.centerRight,
             child: ElevatedButton(
-              onPressed: null, // Placeholder
+              onPressed: () {
+                // "View Summary" functionality
+              },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7A1EA1), // Purple button
+                backgroundColor: const Color(0xFF7A1EA1),
               ),
-              child: const Text('View Summary'),
+              child: const Text(
+                'View Summary',
+                style: TextStyle(color: Colors.white), // White text color
+              ),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildKPISection() {
-    return Column(
-      children: [
-        _buildKPIProgress('Project Completion Rate', '70%'),
-        _buildKPIProgress('Sales Target', '55%'),
-      ],
-    );
-  }
-
-  Widget _buildKPIProgress(String kpi, String progress) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Flexible(
-          flex: 2,
-          child: Text(kpi, style: const TextStyle(fontSize: 16)),
-        ),
-        Expanded(
-          flex: 4,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: LinearProgressIndicator(
-              value: double.parse(progress.replaceAll('%', '')) / 100,
-              backgroundColor: Colors.grey.shade300,
-              color: Colors.blue,
-            ),
-          ),
-        ),
-        Flexible(
-          flex: 1,
-          child: Text(progress),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildChartPlaceholder() {
-    return Container(
-      height: 200,
-      color: Colors.grey.shade200,
-      child: const Center(
-        child: Text(
-          'Chart Placeholder',
-          style: TextStyle(color: Colors.black54),
-        ),
       ),
     );
   }

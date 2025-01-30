@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'logInPage.dart'; // Import the LoginPage file
 
 class WelcomePage extends StatelessWidget {
-  WelcomePage({super.key});
+  const WelcomePage({super.key});
 
   /// Navigate to LoginPage with the selected role
   Future<void> _navigateToLoginPage(BuildContext context, String role) async {

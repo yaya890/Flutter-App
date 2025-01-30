@@ -382,8 +382,7 @@ class _CandidateSelectionDialogState extends State<CandidateSelectionDialog> {
             final candidate = widget.candidates[index];
             return CheckboxListTile(
               title: Text(candidate.name),
-              subtitle: Text(
-                  'Rank: ${candidate.lastRanking}, Score: ${candidate.lastScore}'),
+              subtitle: Text('Score: ${candidate.lastScore}'),
               value: selectedCandidateIDs.contains(candidate.candidateID),
               onChanged: (bool? selected) {
                 setState(() {
