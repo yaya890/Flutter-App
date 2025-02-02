@@ -792,38 +792,30 @@ def get_interview_invitations():
     result = []
 
     for invitation in invitations:
+        # Fetch the job_id from the invitation
         job_id = invitation.get('job_id')
         
-        if job_id is None:  # Skip invitations with missing job_id
+        if job_id is None:  # Check if job_id is None
             print(f"Skipping invitation with missing job_id: {invitation['invitation_id']}")
-            continue
+            continue  # Skip invitations with missing job_id
         
-        # Fetch the job title using job_id
+        # Fetch the job from the job table using job_id
         job = supabase.table('job').select('title').eq('job_id', job_id).execute().data
         
-        if job:
-            # Fetch the candidate name using candidate_id from the candidate table
-            candidate_id = invitation['candidate_id']  # Assuming candidate_id is in the invitation table
-            candidate = supabase.table('candidate').select('user_id').eq('candidate_id', candidate_id).execute().data
-            candidate_name = None
-            if candidate:
-                # Fetch the user name from the user table
-                user_id = candidate[0]['user_id']
-                user_data = supabase.table('user').select('name').eq('user_id', user_id).execute().data
-                if user_data:
-                    candidate_name = user_data[0]['name']
-            
+        # Debugging logs to check what's being returned
+        print(f"job_id: {job_id}, job: {job}")  # Log job_id and job data
+
+        if job:  # If job exists
             result.append({
                 "invitation_id": invitation['invitation_id'],
                 "jobID": job_id,
-                "title": job[0]['title'],
+                "title": job[0]['title'],  # Get the title of the job
                 "start": invitation['start_time'],
                 "end": invitation['end_time'],
-                "candidate_name": candidate_name,
                 "comment": invitation['comment']
             })
         else:
-            print(f"Job not found for job_id: {job_id}")
+            print(f"Job not found for job_id: {job_id}")  # Log if job is not found
 
     return jsonify(result)
 
